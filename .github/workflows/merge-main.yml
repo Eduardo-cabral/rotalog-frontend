@@ -22,10 +22,10 @@ jobs:
         run: npm ci
 
       - name: Build de produção
-        run: npm run build --if-present
+        run: npm run build
 
       - name: Testes
-        run: npm test --if-present
+        run: npm test
 
       #Futuro Deploy:
       # - name: Deploy

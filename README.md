@@ -2,7 +2,7 @@
 
 Portal web responsivo do **RotaLog**, utilizado por empresas compradoras, fornecedores/distribuidoras e operadores da plataforma para acompanhar e executar as jornadas comerciais e logísticas do marketplace B2B.
 
-> **Estado atual:** o repositório contém o skeleton inicial em React, TypeScript e Vite. As funcionalidades e dependências marcadas como planejadas serão incorporadas conforme os grupos de entrega do Backlog.
+> **Estado atual:** o portal é uma SPA em React, TypeScript e Vite. Em `VITE_AUTH_MODE=api`, o comprador autenticado consulta produtos, ofertas, lista e detalhes de compras no Backend, conforme as capacidades da sua organização. O carrinho e checkout do comprador permanecem fora dessa integração e não são exibidos como operações reais. O modo `mock` mantém as telas locais de demonstração.
 
 ## Para quem é o portal
 
@@ -43,16 +43,19 @@ O frontend e o mobile não se comunicam diretamente. Eles observam o mesmo fluxo
 
 O OpenAPI do backend é o contrato canônico. O portal deve utilizar tipos gerados e um wrapper HTTP fino quando essa etapa estiver implementada. A baseline usa HTTP; WebSocket não é requisito da demonstração.
 
-## Funcionalidades previstas
+## Funcionalidades do portal
 
 ### Comprador
 
-- login e seleção de organização;
-- catálogo, busca, filtros e comparação de ofertas;
+- login API para compradores autorizados por organização e capacidade;
+- catálogo de produtos e ofertas com preços retornados pelo Backend;
+- lista e detalhes de compras e pedidos vinculados, em modo somente leitura;
+- catálogo, busca, filtros e comparação de ofertas no modo de demonstração;
 - carrinho de um fornecedor, checkout e pagamento simulado;
-- lista e detalhe de pedidos;
 - acompanhamento de entrega, retorno, reentrega e reembolso;
 - abertura de contestação e acompanhamento da decisão.
+
+No modo API, não há criação de checkout, pagamento nem alteração de pedidos na jornada do comprador. As rotas de carrinho e conta de demonstração ficam indisponíveis para evitar confusão com operações reais.
 
 ### Fornecedor
 
@@ -86,15 +89,15 @@ No piloto, o portal adicionará compra multi-fornecedor, operações parciais, i
 | Qualidade estática | Oxlint |
 | Compilação | React Compiler |
 | Gerenciador de pacotes | npm com `package-lock.json` |
+| Testes de renderização | Vitest, Testing Library e jsdom |
+| Testes ponta a ponta | Playwright |
 
-### Baseline planejada
+### Dependências e evolução
 
 - TanStack Query para estado remoto;
 - React Hook Form e Zod para formulários e validação de fronteira;
 - shadcn/ui sobre Radix UI;
 - Tailwind CSS;
-- Vitest e Testing Library;
-- Playwright para jornadas ponta a ponta;
 - tipos e cliente gerados a partir do OpenAPI do backend.
 
 TanStack Table só será adicionado se as telas administrativas exigirem seleção, ordenação ou colunas complexas. Next.js não faz parte da arquitetura: o portal é uma SPA autenticada sem necessidade de SSR ou SEO relevante.
@@ -135,10 +138,28 @@ Comandos disponíveis:
 npm run dev      # servidor de desenvolvimento com HMR
 npm run build    # type check e build de produção
 npm run lint     # análise estática com Oxlint
+npm run typecheck # validação de tipos TypeScript
+npm test         # testes unitários e de renderização
 npm run preview  # prévia local do build gerado
 ```
 
-Quando a integração da API for adicionada, a URL do backend deverá ser definida por configuração de ambiente do Vite, sem credenciais no bundle. Mantenha os nomes efetivamente adotados documentados em um `.env.example`.
+Configure a aplicação por variáveis de ambiente do Vite. O arquivo `.env.example` contém apenas valores locais de exemplo, sem credenciais. Não configure URL de produção neste repositório sem confirmação da equipe de Infraestrutura.
+
+Para iniciar a partir do exemplo, copie `.env.example` para `.env.local`:
+
+```powershell
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+Use estas variáveis em `.env.local`:
+
+```dotenv
+VITE_AUTH_MODE=mock
+VITE_API_URL=http://localhost:8000
+```
+
+`VITE_AUTH_MODE` aceita `mock` ou `api`; o modo `mock` é o padrão para desenvolvimento local. `VITE_API_URL` é a URL base do Backend (sem o prefixo `/api/v1`). Para usar a API local, configure `VITE_AUTH_MODE=api` e mantenha `VITE_API_URL=http://localhost:8000`. O modo API exige uma sessão autorizada e uma organização com pelo menos uma capacidade de comprador (`catalog:read` ou `purchase:read`); cada tela exige sua capacidade correspondente. Reinicie o Vite após alterar variáveis.
 
 ## Regras de UX e segurança
 
@@ -168,6 +189,24 @@ Quando a integração da API for adicionada, a URL do backend deverá ser defini
 4. Execute lint e build antes de abrir o pull request.
 5. Documente alterações de contrato ou dependências sobre backend e mobile.
 
+## Validação
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
+
+`npm test` executa os testes Node existentes e os testes de renderização do Vitest. Os testes de interface usam ambiente DOM e não dependem de uma API em execução. O workflow de pull request executa lint, typecheck, testes e build; a validação pós-merge executa testes e build.
+
+## Issue #5 — estabilização do CI
+
+Esta entrega cobre a correção do nome do workflow, a execução obrigatória dos scripts de validação, testes de renderização, o exemplo de configuração local e as telas de comprador integradas em modo somente leitura. Login, catálogo/ofertas e lista/detalhe de compras utilizam contratos reais do Backend e respeitam a organização e as capacidades da sessão. A criação de checkout, pagamento e a publicação/URL da Vercel permanecem fora desta entrega; deploy e URL dependem da equipe de Infraestrutura.
+
+Referência: [Issue #5 — Estabilizar workflow, CI e primeiras telas](https://github.com/Uninorte-Extensao/rotalog-frontend/issues/5).
+
 
 ## ROT-027: autenticação com Backend local
 
@@ -192,11 +231,19 @@ no portal, recarregue para testar a restauração e use Sair para revogar a sess
 Confira também senha incorreta e acesso direto a `/fornecedor` sem sessão.
 Para voltar aos usuários de demonstração existentes, configure `mock` e reinicie.
 
-Login, refresh, logout, `/api/v1/me` e pedidos do fornecedor usam a API no modo `api`.
-Produtos/ofertas, estoque e capacidade continuam simulados/locais;
+Login, refresh, logout e `/api/v1/me` usam a API no modo `api`.
+Para o perfil `BUYER_ADMIN`, catálogo e ofertas usam `GET /api/v1/products`,
+`GET /api/v1/products/{product_id}` e `GET /api/v1/offers`; compras usam
+`GET /api/v1/purchases` e `GET /api/v1/purchases/{purchase_id}`. A organização
+ativa é enviada no cabeçalho `X-Organization-Id`, e as telas exigem
+`catalog:read` ou `purchase:read`, conforme a consulta. Para fornecedores, pedidos, produtos e ofertas usam a API; capacidade continua simulada/local;
 as imagens continuam no IndexedDB. A organização real vem de `/me`, sem associação
 artificial com organizações mock: listas vazias não recebem dados de demonstração.
 Os dados mock anteriores são preservados ao alternar os modos.
+
+No modo API do comprador, ofertas são somente leitura: preços vêm de `unit_price`
+retornado pelo endpoint de ofertas. O catálogo não cria checkout, pagamento ou
+alterações de pedidos; as rotas de carrinho e conta locais ficam indisponíveis.
 
 O access token fica somente em memória e o refresh token fica no cookie HttpOnly
 do backend. Apenas o valor CSRF retornado pelo login fica em `sessionStorage`
@@ -206,9 +253,12 @@ uma única promessa por aba e Web Locks para serializar abas quando disponível.
 Falhas de refresh encerram a sessão local; falha de logout informa que a revogação
 no servidor não pôde ser confirmada, mesmo com o estado local limpo.
 
-O perfil e vínculo devem ser `SUPPLIER_OPERATOR`. A interface mapeia
+O perfil e vínculo devem corresponder ao acesso solicitado. Para fornecedores,
+a interface mapeia
 `supplier_order:manage` para dashboard/pedidos, `offer:write` para produtos e
 `inventory:write` para estoque. Rotas logísticas não recebem permissão implícita.
+Para compradores, o perfil e vínculo devem ser `BUYER_ADMIN`; catálogo exige
+`catalog:read` e compras exigem `purchase:read`.
 Os seletores de usuários/organizações mock ficam ocultos em modo API.
 A seleção entre múltiplas organizações reais não faz parte desta etapa.
 

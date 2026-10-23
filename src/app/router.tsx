@@ -1,5 +1,5 @@
 
-import { createBrowserRouter, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
 import { Login } from "../features/auth/pages/Login";
 import { Register } from "../features/auth/pages/Register";
@@ -29,6 +29,9 @@ import { BuyerAccount } from "../features/account/pages/BuyerAccount";
 import { BuyerCart } from "../features/cart/pages/BuyerCart";
 import { BuyerPurchases } from "../features/purchases/pages/BuyerPurchases";
 import { BuyerPurchaseDetails } from "../features/purchases/pages/BuyerPurchaseDetails";
+import { BuyerApiCatalog } from "../features/buyer/api/BuyerApiCatalog";
+import { BuyerApiProductDetails } from "../features/buyer/api/BuyerApiProductDetails";
+import { BuyerApiPurchaseDetails, BuyerApiPurchaseList } from "../features/buyer/api/BuyerApiPurchases";
 
 export const router = createBrowserRouter([
   // Marketplace público e portal do comprador
@@ -39,11 +42,19 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <ProductCatalog />,
+        element: authMode === "api" ? (
+          <ProtectedRoute allowedRoles={["BUYER_ADMIN"]} capability="catalog:read">
+            <BuyerApiCatalog />
+          </ProtectedRoute>
+        ) : <ProductCatalog />,
       },
       {
         path: "produto/:productId",
-        element: (
+        element: authMode === "api" ? (
+          <ProtectedRoute allowedRoles={["BUYER_ADMIN"]} capability="catalog:read">
+            <BuyerApiProductDetails />
+          </ProtectedRoute>
+        ) : (
           <ProtectedRoute allowedRoles={["BUYER_ADMIN"]}>
             <ProductDetails />
           </ProtectedRoute>
@@ -59,19 +70,27 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "carrinho",
-            element: <BuyerCart />,
+            element: authMode === "api" ? <Navigate to="/" replace /> : <BuyerCart />,
           },
           {
             path: "compras",
-            element: <BuyerPurchases />,
+            element: authMode === "api" ? (
+              <ProtectedRoute allowedRoles={["BUYER_ADMIN"]} capability="purchase:read">
+                <BuyerApiPurchaseList />
+              </ProtectedRoute>
+            ) : <BuyerPurchases />,
           },
           {
             path: "compras/:purchaseId",
-            element: <BuyerPurchaseDetails />,
+            element: authMode === "api" ? (
+              <ProtectedRoute allowedRoles={["BUYER_ADMIN"]} capability="purchase:read">
+                <BuyerApiPurchaseDetails />
+              </ProtectedRoute>
+            ) : <BuyerPurchaseDetails />,
           },
           {
             path: "conta",
-            element: <BuyerAccount />,
+            element: authMode === "api" ? <Navigate to="/" replace /> : <BuyerAccount />,
           },
         ],
       },

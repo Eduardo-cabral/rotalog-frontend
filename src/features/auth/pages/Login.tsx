@@ -34,8 +34,11 @@ export function Login() {
                 location.state as { from?: unknown } | null
             )?.from;
 
-            const defaultPath =
-                user.role === "BUYER_ADMIN" ? "/" : "/fornecedor";
+            const defaultPath = user.role === "BUYER_ADMIN"
+                ? user.capabilities?.includes("catalog:read")
+                    ? "/"
+                    : "/comprador/compras"
+                : "/fornecedor";
 
             const destination =
                 typeof requestedPath === "string" &&
