@@ -22,13 +22,13 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint --if-present
+        run: npm run lint
 
       - name: Checagem de tipos (TypeScript)
-        run: npm run typecheck --if-present
+        run: npm run typecheck
 
       - name: Build
-        run: npm run build --if-present
+        run: npm run build
 
       - name: Testes
-        run: npm test --if-present
+        run: npm test

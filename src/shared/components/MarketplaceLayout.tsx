@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../../features/auth/hooks/useAuth";
 import { useLogout } from "../../features/auth/hooks/useLogout";
 import { useCart } from "../../features/cart/hooks/useCart";
+import { authMode } from "../api/config";
 
 function CartIcon() {
     return (
@@ -69,12 +70,6 @@ function MenuIcon({ kind }: { kind: "catalog" | "purchases" | "account" }) {
     );
 }
 
-const navigation = [
-    { label: "Catálogo de produtos", to: "/" },
-    { label: "Minhas compras", to: "/comprador/compras" },
-    { label: "Meu carrinho", to: "/comprador/carrinho" },
-];
-
 export function MarketplaceLayout() {
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -83,6 +78,15 @@ export function MarketplaceLayout() {
     const { suppliers } = useCart();
     const logout = useLogout();
     const location = useLocation();
+    const navigation = [
+        ...(authMode !== "api" || user?.capabilities?.includes("catalog:read")
+            ? [{ label: "Catálogo de produtos", to: "/" }]
+            : []),
+        ...(authMode !== "api" || user?.capabilities?.includes("purchase:read")
+            ? [{ label: "Minhas compras", to: "/comprador/compras" }]
+            : []),
+        ...(authMode === "api" ? [] : [{ label: "Meu carrinho", to: "/comprador/carrinho" }]),
+    ];
 
     const isCatalog = location.pathname === "/";
 
@@ -147,19 +151,21 @@ export function MarketplaceLayout() {
                     </div>
 
                     <div className="ml-auto flex shrink-0 items-center gap-2">
-                        <Link
-                            to="/comprador/carrinho"
-                            aria-label={`Carrinho de compras, ${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
-                            title="Meu carrinho"
-                            className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                            <CartIcon />
-                            {cartCount > 0 && (
-                                <span className="ml-1.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700">
-                                    {cartCount}
-                                </span>
-                            )}
-                        </Link>
+                        {authMode !== "api" && (
+                            <Link
+                                to="/comprador/carrinho"
+                                aria-label={`Carrinho de compras, ${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
+                                title="Meu carrinho"
+                                className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                <CartIcon />
+                                {cartCount > 0 && (
+                                    <span className="ml-1.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700">
+                                        {cartCount}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
 
                         {isAuthenticated ? (
                             <button
@@ -243,19 +249,21 @@ export function MarketplaceLayout() {
                             </NavLink>
                         ))}
 
-                        <Link
-                            to={isAuthenticated ? "/comprador/conta" : "/login"}
-                            onClick={closeMenu}
-                            className="block rounded-lg px-3 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                            <span className="flex items-center gap-2">
-                                <MenuIcon kind="account" />
-                                Minha conta
-                            </span>
-                        </Link>
+                        {authMode !== "api" && (
+                            <Link
+                                to={isAuthenticated ? "/comprador/conta" : "/login"}
+                                onClick={closeMenu}
+                                className="block rounded-lg px-3 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <MenuIcon kind="account" />
+                                    Minha conta
+                                </span>
+                            </Link>
+                        )}
                     </nav>
 
-                    <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    {authMode !== "api" && <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <p className="text-[13px] font-bold">
                             Venda no RotaLog
                         </p>
@@ -271,7 +279,7 @@ export function MarketplaceLayout() {
                         >
                             Começar agora →
                         </Link>
-                    </div>
+                    </div>}
 
                     {user && (
                         <div className="mt-6 border-t border-slate-100 px-1 pt-4">
