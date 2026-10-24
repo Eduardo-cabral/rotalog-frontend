@@ -175,7 +175,7 @@ test("explains when only one offer is available and has no comparison", async ()
 test("shows empty, loading, and error states for product offers", async () => {
     mocks.offers.mockResolvedValueOnce([]);
     renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
-    expect(await screen.findByText("NÃ£o hÃ¡ ofertas ativas para este produto.")).toBeTruthy();
+    expect(await screen.findByText("Não há ofertas ativas para este produto.")).toBeTruthy();
     cleanup();
 
     let resolveProduct!: (value: typeof product) => void;
