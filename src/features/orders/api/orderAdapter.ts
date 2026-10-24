@@ -3,7 +3,7 @@ import type { ApiOrder } from "./contracts";
 export const apiStages = [
     { id: "new", title: "Novos", background: "bg-blue-50/70", dot: "bg-blue-500" },
     { id: "accepted", title: "Aceitos", background: "bg-emerald-50/70", dot: "bg-emerald-500" },
-    { id: "separating", title: "Em separação", background: "bg-amber-50/70", dot: "bg-amber-500" },
+    { id: "separating", title: "Em separação", background: "bg-cyan-50/70", dot: "bg-cyan-500" },
     { id: "ready", title: "Prontos para coleta", background: "bg-teal-50/70", dot: "bg-teal-500" },
     { id: "transport", title: "Em transporte", background: "bg-violet-50/70", dot: "bg-violet-500" },
     { id: "delivered", title: "Entregues", background: "bg-emerald-50/70", dot: "bg-emerald-600" },

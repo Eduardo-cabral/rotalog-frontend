@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 import { appRoutes } from "../../app/routePermissions";
+import {SupplierIcon, type IconName} from "./SupplierVisuals";
 import type { Permission } from "../../features/auth/mocks/users.mock";
 
 type PortalType = "supplier" | "buyer";
@@ -44,80 +45,25 @@ export function Sidebar({
         permissions.includes(route.permission)
     );
 
-    return (
-        <aside className={`${portal === "supplier" ? "flex min-h-full flex-col" : ""} h-full w-64 overflow-y-auto bg-slate-900 p-5 text-white`}>
-            <div className="mb-10">
-                <NavLink
-                    to={portal === "buyer" ? "/" : "/fornecedor"}
-                    className={`block text-2xl font-bold text-white ${portal === "supplier" ? "rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400" : ""}`}
-                >
-                    RotaLog
-                </NavLink>
-
-                <p className="mt-1 text-sm text-slate-400">
-                    {portal === "buyer"
-                        ? "Portal do Comprador"
-                        : "Portal do Fornecedor"}
-                </p>
+    if (portal === "supplier") {
+        const icons: Record<string, IconName> = {"/fornecedor": "home", "/fornecedor/pedidos": "orders", "/fornecedor/produtos": "products", "/fornecedor/estoque": "inventory", "/fornecedor/rotas": "routes"};
+        const supplierItems = appRoutes.filter(route => permissions.includes(route.permission) || route.path === "/fornecedor/rotas");
+        return <aside className="supplier-sidebar">
+            <NavLink to="/fornecedor" className="supplier-brand"><span className="supplier-brand-mark" aria-hidden="true">↯</span><span>Rota<span className="text-blue-600">Log</span></span></NavLink>
+            <p className="supplier-nav-caption">ÁREA DO FORNECEDOR</p>
+            <nav aria-label="Menu principal" className="space-y-1">{supplierItems.map(route => <NavLink key={route.path} to={route.path} end={route.path === "/fornecedor"} className={({isActive}) => `supplier-nav-link ${isActive ? "is-active" : ""}`}><SupplierIcon name={icons[route.path] ?? "home"}/><span>{route.label}</span>{route.path === "/fornecedor/pedidos" && pendingOrdersCount > 0 && <span className="supplier-nav-count" aria-label={`${pendingOrdersCount} ${pendingOrdersCount === 1 ? "pedido aguardando aceite" : "pedidos aguardando aceite"}`} aria-live="polite">{pendingOrdersCount}</span>}</NavLink>)}</nav>
+            <div className="supplier-sidebar-bottom">
+                {import.meta.env.DEV && developmentControls}
+                <NavLink to="/fornecedor/conta" className={({isActive}) => `supplier-nav-link ${isActive ? "is-active" : ""}`}><SupplierIcon name="account"/>Minha conta</NavLink>
+                {organizationName && <p className="mt-4 break-words px-3 text-xs text-slate-500">{organizationName}</p>}
+                {onLogout && <button type="button" className="supplier-nav-link supplier-logout" onClick={onLogout}>Sair</button>}
             </div>
+        </aside>;
+    }
 
-            <nav aria-label="Menu principal" className="space-y-2">
-                {visibleItems.map((route) => (
-                    <NavLink
-                        key={route.path}
-                        to={route.path}
-                        end={
-                            route.path === "/fornecedor" ||
-                            route.path === "/comprador/carrinho"
-                        }
-                        className={({ isActive }) =>
-                            `flex items-center justify-between gap-2 rounded-lg px-4 py-3 text-sm transition-colors ${portal === "supplier" ? "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400" : ""} ${isActive
-                                ? "bg-blue-600 text-white"
-                                : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                            }`
-                        }
-                    >
-                        {route.label}
-                        {portal === "supplier" && route.path === "/fornecedor/pedidos" && pendingOrdersCount > 0 && (
-                            <span
-                                className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-blue-700 px-1.5 text-xs font-bold text-white"
-                                aria-label={`${pendingOrdersCount} ${pendingOrdersCount === 1 ? "pedido aguardando aceite" : "pedidos aguardando aceite"}`}
-                                aria-live="polite"
-                            >
-                                {pendingOrdersCount}
-                            </span>
-                        )}
-                    </NavLink>
-                ))}
-            </nav>
-
-            {portal === "buyer" && (
-                <div className="mt-8 border-t border-slate-700 pt-5">
-                    <NavLink
-                        to="/"
-                        className="block rounded-lg px-4 py-3 text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                    >
-                        Voltar ao catálogo
-                    </NavLink>
-                </div>
-            )}
-            {portal === "supplier" && organizationName && (
-                <div className="mt-auto pt-8">
-                    {import.meta.env.DEV && developmentControls}
-                    <div className="border-t border-slate-700 pt-4">
-                        <div className="flex items-center gap-3 px-2">
-                            <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-sm font-bold text-blue-300">
-                                {organizationName.trim().charAt(0).toUpperCase()}
-                            </span>
-                            <p className="min-w-0 break-words text-sm font-semibold text-slate-100">{organizationName}</p>
-                        </div>
-                        {onLogout && <button type="button" onClick={onLogout} className="mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition hover:bg-red-950 hover:text-red-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400">
-                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
-                            Sair
-                        </button>}
-                    </div>
-                </div>
-            )}
-        </aside>
-    );
+    return <aside className="h-full w-64 overflow-y-auto bg-slate-900 p-5 text-white">
+        <div className="mb-10"><NavLink to="/" className="block text-2xl font-bold text-white">RotaLog</NavLink><p className="mt-1 text-sm text-slate-400">Portal do Comprador</p></div>
+        <nav aria-label="Menu principal" className="space-y-2">{visibleItems.map(route=><NavLink key={route.path} to={route.path} end={route.path === "/comprador/carrinho"} className={({isActive})=>`flex items-center justify-between gap-2 rounded-lg px-4 py-3 text-sm transition-colors ${isActive ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}>{route.label}</NavLink>)}</nav>
+        <div className="mt-8 border-t border-slate-700 pt-5"><NavLink to="/" className="block rounded-lg px-4 py-3 text-sm text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">Voltar ao catálogo</NavLink></div>
+    </aside>;
 }

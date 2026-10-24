@@ -1,6 +1,7 @@
 import { getOrderStage as getStage, type OrderStage } from "../utils/orderStage";
 import { getTestOrderItems } from "../services/testOrderItems";
 import { getOrderDisplayIds } from "../utils/orderDisplayId";
+import { shortOrderId } from "../api/orderAdapter";
 import { useState } from "react";
 import { useSupplierOrders } from "../hooks/useSupplierOrders";
 import { useOutletContext } from "react-router-dom";
@@ -261,19 +262,19 @@ export function SupplierOrders() {
                                 <div className="flex flex-col gap-3 p-1">
                                     {stageOrders.map((order) => (
                                         <article key={`${order.organizationId}-${order.id}`} className="min-w-0 shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm [overflow-wrap:anywhere]">
-                                            <h3 title={displayIds.get(order.id) ?? order.id} className="truncate font-bold text-slate-900">{displayIds.get(order.id) ?? order.id}</h3>
+                                            <h3 className="truncate font-bold text-slate-900">{displayIds.get(order.id) ?? shortOrderId(order.id)}</h3>
                                             <p className="mt-1 text-sm text-slate-700">{order.customer}</p>
                                             <div className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500">
                                                 <span>{order.items} itens · {formatDate(order.date)}</span>
                                             </div>
                                             <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                                                 <p className="min-w-0 text-sm font-bold text-slate-900">{currencyFormatter.format(order.total)}</p>
-                                                <button type="button" onClick={() => setSelectedOrderId(order.id)} aria-label={`Ver detalhes do pedido ${displayIds.get(order.id) ?? order.id}`} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"><ProductIcon name="eye" /> Ver detalhes</button>
+                                                <button type="button" onClick={() => setSelectedOrderId(order.id)} aria-label={`Ver detalhes do pedido ${displayIds.get(order.id) ?? shortOrderId(order.id)}`} className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"><ProductIcon name="eye" /> Ver detalhes</button>
                                             </div>
                                             {stage.id === "new" && (
                                                 <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3">
-                                                    <button type="button" onClick={() => applyAction(order, "accept")} aria-label={`Aceitar pedido ${displayIds.get(order.id) ?? order.id}`} title="Aceitar pedido" className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-600"><CheckIcon /> Aceitar</button>
-                                                    <button type="button" onClick={() => applyAction(order, "reject")} aria-label={`Recusar pedido ${displayIds.get(order.id) ?? order.id}`} title="Recusar pedido" className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-600"><XIcon /> Recusar</button>
+                                                    <button type="button" onClick={() => applyAction(order, "accept")} aria-label={`Aceitar pedido ${displayIds.get(order.id) ?? shortOrderId(order.id)}`} title="Aceitar pedido" className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-600"><CheckIcon /> Aceitar</button>
+                                                    <button type="button" onClick={() => applyAction(order, "reject")} aria-label={`Recusar pedido ${displayIds.get(order.id) ?? shortOrderId(order.id)}`} title="Recusar pedido" className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-600"><XIcon /> Recusar</button>
                                                 </div>
                                             )}
                                             {stage.id === "new" && <div className="mt-2"><OrderDeadline order={order} /></div>}

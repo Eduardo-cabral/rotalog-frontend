@@ -16,7 +16,8 @@ function load(path, dependencies = {}) {
 }
 const productMocks = load('src/features/products/mocks/products.mock.ts');
 const orderMocks = load('src/features/orders/mocks/orders.mock.ts');
-const { getOrderDisplayIds } = load('src/features/orders/utils/orderDisplayId.ts');
+const orderAdapter = load('src/features/orders/api/orderAdapter.ts');
+const { getOrderDisplayIds } = load('src/features/orders/utils/orderDisplayId.ts', { '../api/orderAdapter': orderAdapter });
 const stock = load('src/features/inventory/services/stockReservation.ts');
 const history = load('src/features/inventory/services/stockMovements.ts');
 const products = load('src/features/products/services/supplierProducts.service.ts', { '../mocks/products.mock': productMocks, '../../inventory/services/stockMovements': load('src/features/inventory/services/stockMovements.ts') });
@@ -49,6 +50,8 @@ async function run() {
     assert.equal(displayIds.get(displayOrders[2].id), 'TESTE-003');
     assert.equal(getOrderDisplayIds([...displayOrders, makeOrder('TESTE-fedcba9876543210fedcba9876543210', [])]).get(displayOrders[2].id), 'TESTE-003');
     assert.equal(JSON.stringify(displayOrders), displaySnapshot, 'display formatting must not mutate persisted IDs');
+    const legacyUuid = makeOrder('01234567-89ab-cdef-0123-456789abcdef', []);
+    assert.equal(getOrderDisplayIds([legacyUuid]).get(legacyUuid.id), '01234567…89abcdef', 'full UUIDs are shortened for presentation');
     const reversedIds = getOrderDisplayIds([...displayOrders].reverse());
     for (const order of displayOrders) assert.equal(reversedIds.get(order.id), displayIds.get(order.id), 'sorting must not change visual IDs');
     const unusual = makeOrder('TESTE-3e6968b543f1c00328015ea2578537', []);

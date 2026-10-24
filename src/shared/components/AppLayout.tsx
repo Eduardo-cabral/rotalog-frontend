@@ -14,6 +14,7 @@ import {
 import { getSupplierOrders, subscribeSupplierOrders } from "../../features/orders/services/supplierOrders.service";
 
 import { Sidebar } from "./Sidebar";
+import { SupplierHeader } from "./SupplierHeader";
 import { SupplierDevControls } from "./SupplierDevControls";
 import { useLogout } from "../../features/auth/hooks/useLogout";
 
@@ -160,9 +161,9 @@ export function AppLayout() {
 
   // Verifica a permissão utilizando a configuração centralizada
   const routeExists =
-    getRoutePermission(location.pathname) !== undefined;
+    getRoutePermission(location.pathname) !== undefined || location.pathname === "/fornecedor/conta";
 
-  const hasAccess = canAccessRoute(
+  const hasAccess = location.pathname === "/fornecedor/conta" || canAccessRoute(
     location.pathname,
     activeUser.permissions
   );
@@ -216,6 +217,7 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <SupplierHeader name={sessionUser?.name ?? activeUser.name} organization={activeOrganization.name} onLogout={()=>void logout()}/>
         {/* Botão do menu mobile */}
         <div className="border-b border-slate-200 bg-white px-4 py-3 md:hidden">
           <button
@@ -271,7 +273,6 @@ export function AppLayout() {
             </div>
           ) : (
             <>
-              {apiMode && <p role="status" className="mb-4 text-sm text-slate-600">Sessão API: {sessionUser?.name}. Pedidos, catálogo, ofertas e estoque do Backend.</p>}
               <Outlet context={{ activeOrganization }} />
             </>
           )}

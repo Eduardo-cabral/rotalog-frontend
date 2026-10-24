@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { rejectionReasons, type OrderRejectionReason, type SupplierOrder } from "../mocks/orders.mock";
+import { shortOrderId } from "../api/orderAdapter";
 
 type Props = {
     order: SupplierOrder;
@@ -54,7 +55,7 @@ export function OrderRejectionModal({ order, displayId, onClose, onConfirm }: Pr
         }} className="fixed inset-0 m-auto max-h-[calc(100dvh_-_1.5rem)] w-[calc(100%_-_1.5rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-0 text-slate-900 shadow-2xl [overflow-wrap:anywhere] backdrop:bg-slate-950/60">
             <form onSubmit={submit} className="p-5 sm:p-6">
                 <header className="flex items-start justify-between gap-3">
-                    <h2 id={`${id}-title`} className="text-xl font-bold">Recusar pedido {displayId ?? order.id}</h2>
+                    <h2 id={`${id}-title`} className="text-xl font-bold">Recusar pedido {displayId ?? shortOrderId(order.id)}</h2>
                     <button type="button" onClick={onClose} aria-label="Fechar recusa do pedido" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-600">✕</button>
                 </header>
                 <p id={`${id}-description`} className="mt-2 text-sm text-slate-600">Informe o motivo e a justificativa para recusar o pedido de {order.customer}. Todos os campos são obrigatórios.</p>

@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { PasswordChangeDialog } from "../components/PasswordChangeDialog";
 
 export function BuyerAccount() {
   const { user } = useAuth();
+  const [passwordDialog, setPasswordDialog] = useState(false);
 
   if (!user) {
     return null;
@@ -97,29 +100,30 @@ export function BuyerAccount() {
               </dd>
             </div>
 
-            <div className="min-w-0">
-              <dt className="text-xs font-medium text-slate-500">
-                Identificador da conta
-              </dt>
-              <dd className="mt-1 break-all font-mono text-xs text-slate-700">
-                {user.id}
-              </dd>
-            </div>
           </dl>
         </div>
       </section>
 
-      <section className="mt-5 rounded-xl border border-slate-200 bg-white px-5 py-5 sm:px-6">
-        <h2 className="text-sm font-bold">
-          Configurações da conta
-        </h2>
-
-        <p className="mt-2 text-[13px] leading-5 text-slate-600">
-          A edição de dados pessoais e a alteração de senha
-          estarão disponíveis quando os serviços de gerenciamento
-          de contas forem integrados.
-        </p>
+      <section className="mt-5 rounded-xl border border-slate-200 bg-white px-5 py-5 sm:px-6" aria-labelledby="account-security-title">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="account-security-title" className="text-base font-bold">
+              Segurança da conta
+            </h2>
+            <p className="mt-2 max-w-xl text-[13px] leading-5 text-slate-600">
+              Atualize sua senha usando a senha atual. Após a alteração, será necessário entrar novamente.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPasswordDialog(true)}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+          >
+            Alterar senha
+          </button>
+        </div>
       </section>
+      {passwordDialog && <PasswordChangeDialog onClose={() => setPasswordDialog(false)} />}
     </div>
   );
 }

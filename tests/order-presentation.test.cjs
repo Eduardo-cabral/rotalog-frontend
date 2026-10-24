@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const ts=require('typescript');
+function load(path,dependencies={}){const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,require:id=>dependencies[id]});return module.exports;}
+const adapter=load('src/features/orders/api/orderAdapter.ts');
+const ui=load('src/features/orders/api/orderPresentation.ts',{'./orderAdapter':adapter});
+const original={state:'ACTIVE',supplier_orders:[{state:'READY_TO_DISPATCH'}]};
+assert.equal(ui.purchaseStateLabel(original.state),'Em andamento');
+assert.equal(ui.purchaseStateLabel('CANCELLED'),'Cancelada');
+assert.equal(ui.purchaseStateLabel('COMPLETED'),'Situação não reconhecida');
+assert.equal(ui.checkoutStateLabel('READY_FOR_PAYMENT'),'Aguardando confirmação do pagamento');
+assert.equal(ui.checkoutStateLabel('CONVERTED'),'Compra confirmada');
+assert.equal(ui.checkoutStateLabel('EXPIRED'),'Reserva expirada');
+assert.equal(ui.readableOrderState(original.supplier_orders[0].state),'Pronto para coleta');
+assert.equal(ui.readableOrderState('NEW_BACKEND_STATE'),'Situação não reconhecida');
+assert.equal(adapter.orderStateLabel('NEW_BACKEND_STATE'),'NEW_BACKEND_STATE');
+assert.match(ui.preparationMessage('READY_TO_DISPATCH'),/não confirma coleta ou entrega/);
+assert.doesNotMatch(ui.preparationMessage('COMPLETED'),/entregue|coletado|em transporte/i);
+assert.deepEqual(original,{state:'ACTIVE',supplier_orders:[{state:'READY_TO_DISPATCH'}]});
+console.log('Order presentation: human labels preserve official states; readiness and unknown completion never invent collection or delivery.');

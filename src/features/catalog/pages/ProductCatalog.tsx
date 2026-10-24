@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { catalogProducts, formatPrice } from "../mocks/products.mock";
+import { BuyerEmptyState, BuyerIcon, BuyerProductPlaceholder, BuyerStatus } from "../../buyer/components/BuyerVisuals";
 
 type MarketplaceContext = {
     search: string;
@@ -114,73 +115,61 @@ export function ProductCatalog() {
                         </p>
                     </div>
 
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600">
                         {filteredProducts.length} produto(s)
                     </span>
                 </div>
 
                 {filteredProducts.length === 0 ? (
-                    <div className="mt-4 rounded-xl border border-slate-200 bg-white px-6 py-12 text-center">
-                        <h3 className="text-base font-semibold">
-                            Nenhum produto encontrado
-                        </h3>
-
-                        <p className="mt-2 text-sm text-slate-500">
-                            Tente pesquisar outro termo ou selecionar outra categoria.
-                        </p>
+                    <div className="mt-4">
+                        <BuyerEmptyState icon="search" title="Nenhum produto encontrado">
+                            <p>Tente outro termo ou selecione uma categoria diferente.</p>
+                        </BuyerEmptyState>
                     </div>
                 ) : (
                     <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {filteredProducts.map((product) => (
                             <article
                                 key={product.id}
-                                className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-blue-200 hover:shadow-sm"
+                                className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:p-5"
                             >
                                 <Link
                                     to={`/produto/${product.id}`}
-                                    className="flex h-44 items-center justify-center overflow-hidden border-b border-slate-100 bg-white p-3 sm:h-48"
+                                    className="flex h-36 items-center justify-center overflow-hidden rounded-xl bg-slate-50 p-3 sm:h-40"
                                     aria-label={`Ver detalhes de ${product.name}`}
                                 >
-                                    <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        loading="lazy"
-                                        className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.03]"
-                                    />
+                                    <ProductImage src={product.image} alt={product.name} />
                                 </Link>
 
                                 <div className="flex flex-1 flex-col p-4">
-                                    <span className="w-fit rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
-                                        {product.category}
-                                    </span>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="w-fit rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{product.category}</span>
+                                        <BuyerStatus tone={product.available ? "success" : "neutral"} icon={product.available ? "check" : "clock"}>{product.available ? "Disponível" : "Indisponível"}</BuyerStatus>
+                                    </div>
 
-                                    <h3 className="mt-3 min-h-10 text-sm font-bold leading-5">
-                                        <Link
-                                            to={`/produto/${product.id}`}
-                                            className="transition hover:text-blue-700"
-                                        >
-                                            {product.name}
-                                        </Link>
+                                    <h3 className="mt-4 min-h-12 text-base font-bold leading-6">
+                                        <Link to={`/produto/${product.id}`} className="transition hover:text-blue-700">{product.name}</Link>
                                     </h3>
 
-                                    <p className="mt-1 truncate text-xs text-slate-500">
+                                    <p className="mt-1 truncate text-sm text-slate-500">
                                         Vendido por {product.supplier}
                                     </p>
 
                                     <div className="mt-auto pt-4">
-                                        <p className="text-xl font-bold tracking-tight text-slate-900">
+                                        <p className="text-2xl font-bold tracking-tight text-blue-950">
                                             {formatPrice(product.price)}
                                         </p>
 
-                                        <p className="mt-0.5 text-xs text-slate-500">
+                                        <p className="mt-1 text-sm text-slate-500">
                                             por {product.unit}
                                         </p>
 
                                         <Link
                                             to={`/produto/${product.id}`}
-                                            className="mt-4 flex h-10 items-center justify-center rounded-lg bg-blue-700 px-4 text-xs font-semibold text-white transition hover:bg-blue-800"
+                                            className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                                         >
-                                            Ver detalhes
+                                            Ver produto
+                                            <BuyerIcon name="arrow-right" className="h-4 w-4" />
                                         </Link>
                                     </div>
                                 </div>
@@ -191,4 +180,10 @@ export function ProductCatalog() {
             </section>
         </div>
     );
+}
+
+function ProductImage({src,alt}:{src:string;alt:string}) {
+    const [failed,setFailed]=useState(false);
+    if(failed)return <BuyerProductPlaceholder/>;
+    return <img src={src} alt={alt} loading="lazy" onError={()=>setFailed(true)} className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.03]"/>;
 }

@@ -2,7 +2,7 @@
 
 Portal web responsivo do **RotaLog**, utilizado por empresas compradoras, fornecedores/distribuidoras e operadores da plataforma para acompanhar e executar as jornadas comerciais e logísticas do marketplace B2B.
 
-> **Estado atual:** o portal é uma SPA em React, TypeScript e Vite. Em `VITE_AUTH_MODE=api`, o comprador autenticado consulta produtos, ofertas, lista e detalhes de compras no Backend, conforme as capacidades da sua organização. O carrinho e checkout do comprador permanecem fora dessa integração e não são exibidos como operações reais. O modo `mock` mantém as telas locais de demonstração.
+> **Estado atual:** o portal é uma SPA em React, TypeScript e Vite. Em `VITE_AUTH_MODE=api`, o comprador autenticado consulta produtos, ofertas, lista e detalhes de compras no Backend conforme as capacidades da organização e pode enviar solicitações de checkout e confirmação explícita. A análise estática do Backend no commit 5dda7eaed56185509382113f66b6807cc97fe30d considerou compatíveis os contratos de login, catálogo, produtos, ofertas, estoque, checkout, compras e pedidos. Nesse commit, confirm-payment usa pagamento simulado, sem PSP externo, mas grava compra, pedidos, pagamento e alocações e converte reservas. A compatibilidade com o ambiente publicado ainda precisa ser validada. O modo `mock` mantém as telas locais de demonstração.
 
 ## Para quem é o portal
 
@@ -47,32 +47,29 @@ O OpenAPI do backend é o contrato canônico. O portal deve utilizar tipos gerad
 
 ### Comprador
 
-- login API para compradores autorizados por organização e capacidade;
-- catálogo de produtos e ofertas com preços retornados pelo Backend;
+- login API autorizado por organização e capacidade;
+- catálogo, detalhes e ofertas lidos da API;
 - lista e detalhes de compras e pedidos vinculados, em modo somente leitura;
-- catálogo, busca, filtros e comparação de ofertas no modo de demonstração;
-- carrinho de um fornecedor, checkout e pagamento simulado;
-- acompanhamento de entrega, retorno, reentrega e reembolso;
-- abertura de contestação e acompanhamento da decisão.
+- carrinho, criação de checkout, consulta e confirmação explícita no modo API;
+- catálogo, busca e filtros locais no modo de demonstração.
 
-No modo API, não há criação de checkout, pagamento nem alteração de pedidos na jornada do comprador. As rotas de carrinho e conta de demonstração ficam indisponíveis para evitar confusão com operações reais.
+No Backend do commit 5dda7eaed56185509382113f66b6807cc97fe30d, confirm-payment usa captura simulada, sem PSP externo. A confirmação, apesar de simulada, grava compra, pedidos, pagamento e alocações e converte as reservas de estoque/capacidade. O Frontend depende de janelas de capacidade previamente existentes; criação e ajuste dessas janelas não estão disponíveis na interface. Compatibilidade com o ambiente publicado ainda precisa ser validada. Entrega, retorno, reentrega, reembolso e contestação não estão implementados nesta jornada Frontend.
 
 ### Fornecedor
 
-- administração de ofertas, estoque declarado e capacidade;
-- fila de pedidos, aceite, recusa e prazos;
-- separação, prontidão e falha pré-despacho;
-- recebimento e conferência de retornos;
-- resposta a contestações e acompanhamento financeiro.
+- consulta de catálogo, gestão de ofertas e depósitos;
+- consulta e ajuste de estoque declarado;
+- fila de pedidos, aceite/recusa, separação e prontidão;
+- dashboard e lista de pedidos prontos para coleta.
 
-### Operação RotaLog
+A revisão administrativa de geocodificação dos depósitos não está disponível no Frontend. Capacidade logística também não pode ser criada ou ajustada pela interface. A tela de Rotas lista pedidos prontos, mas não faz planejamento, atribuição de motorista nem rastreamento. Imagens de produtos permanecem no IndexedDB local e não usam o serviço de imagens do Backend.
 
-- criação, edição e publicação de rotas;
-- painel de organizações, notificações e jobs falhos;
-- tratamento de prova pendente, cancelamento excepcional e extravio;
-- mediação, decisão provisória, revisão e resultado final;
-- timeline e auditoria mascarada;
-- controle dos cenários sintéticos da demonstração.
+### Administração
+
+- cadastro e publicação de produtos no catálogo canônico;
+- leitura do catálogo publicado.
+
+Planejamento e publicação de rotas, acompanhamento operacional, provas de entrega, disputas, organização de frota e controle de jobs não estão implementados nas telas desta branch.
 
 No piloto, o portal adicionará compra multi-fornecedor, operações parciais, integração ERP, propostas de rota otimizadas e mapa de rastreamento autorizado.
 
@@ -203,7 +200,7 @@ npm run build
 
 ## Issue #5 — estabilização do CI
 
-Esta entrega cobre a correção do nome do workflow, a execução obrigatória dos scripts de validação, testes de renderização, o exemplo de configuração local e as telas de comprador integradas em modo somente leitura. Login, catálogo/ofertas e lista/detalhe de compras utilizam contratos reais do Backend e respeitam a organização e as capacidades da sessão. A criação de checkout, pagamento e a publicação/URL da Vercel permanecem fora desta entrega; deploy e URL dependem da equipe de Infraestrutura.
+Na etapa da Issue #5 foram corrigidos o nome do workflow, os scripts de validação, os testes de renderização e o exemplo de configuração local; catálogo/ofertas e lista/detalhe de compras foram integrados em modo somente leitura. Checkout e confirmação de pagamento não fizeram parte daquela etapa. A implementação posterior descrita neste README envia essas solicitações no modo API, sujeitas à validação dos contratos do Backend.
 
 Referência: [Issue #5 — Estabilizar workflow, CI e primeiras telas](https://github.com/Uninorte-Extensao/rotalog-frontend/issues/5).
 
@@ -231,19 +228,37 @@ no portal, recarregue para testar a restauração e use Sair para revogar a sess
 Confira também senha incorreta e acesso direto a `/fornecedor` sem sessão.
 Para voltar aos usuários de demonstração existentes, configure `mock` e reinicie.
 
-Login, refresh, logout e `/api/v1/me` usam a API no modo `api`.
-Para o perfil `BUYER_ADMIN`, catálogo e ofertas usam `GET /api/v1/products`,
-`GET /api/v1/products/{product_id}` e `GET /api/v1/offers`; compras usam
-`GET /api/v1/purchases` e `GET /api/v1/purchases/{purchase_id}`. A organização
-ativa é enviada no cabeçalho `X-Organization-Id`, e as telas exigem
-`catalog:read` ou `purchase:read`, conforme a consulta. Para fornecedores, pedidos, produtos e ofertas usam a API; capacidade continua simulada/local;
-as imagens continuam no IndexedDB. A organização real vem de `/me`, sem associação
-artificial com organizações mock: listas vazias não recebem dados de demonstração.
-Os dados mock anteriores são preservados ao alternar os modos.
+Login, cadastro, refresh, logout, alteração de senha e `/api/v1/me` usam a API
+no modo `api`. Para `BUYER_ADMIN`, catálogo/ofertas usam `GET /api/v1/products`,
+`GET /api/v1/products/{product_id}` e `GET /api/v1/offers`; compras usam a leitura
+paginada de `GET /api/v1/purchases` e `GET /api/v1/purchases/{purchase_id}`.
+O comprador também consulta `GET /api/v1/capacity-slots` e envia solicitações
+para `POST /api/v1/checkouts`, `GET /api/v1/checkouts/{checkout_id}` e
+`POST /api/v1/checkouts/{checkout_id}/confirm-payment`. A interface envia a
+confirmação após ação explícita. A análise estática dos routers, schemas,
+serviços e testes do Backend no commit
+`5dda7eaed56185509382113f66b6807cc97fe30d` considerou compatíveis os contratos
+de login, catálogo, produtos, ofertas, estoque, checkout, compras e pedidos.
+Nesse commit, confirm-payment usa pagamento simulado, sem PSP externo; a
+operação ainda grava compra, pedidos, pagamento e alocações e converte
+reservas. A compatibilidade do ambiente publicado ainda precisa ser validada.
 
-No modo API do comprador, ofertas são somente leitura: preços vêm de `unit_price`
-retornado pelo endpoint de ofertas. O catálogo não cria checkout, pagamento ou
-alterações de pedidos; as rotas de carrinho e conta locais ficam indisponíveis.
+A organização ativa é enviada no cabeçalho `X-Organization-Id`. Catálogo exige
+`catalog:read`, carrinho/checkout exige `checkout:create` e compras exige
+`purchase:read`; o login aceita comprador autorizado com `catalog:read` ou
+`purchase:read`. As listas e detalhes de compras verificam o vínculo com a
+organização. Para fornecedores, pedidos, produtos, ofertas, depósitos e estoque
+usam a API. A revisão administrativa de depósitos e a criação/alteração de
+capacidade logística não estão disponíveis no Frontend. A tela de Rotas lista
+pedidos prontos, mas não planeja, atribui motorista ou rastreia. Imagens de
+produtos permanecem no IndexedDB e não usam o serviço de imagens do Backend.
+A organização real vem de `/me`, sem associação artificial
+com organizações mock; listas vazias não recebem dados de demonstração. Os dados
+mock anteriores são preservados ao alternar os modos.
+
+Criação de checkout e confirmação usam chaves de idempotência e não são
+reenviadas automaticamente. Se o resultado ficar incerto, a interface exige
+consulta antes de uma nova confirmação. O modo API não monta o carrinho mock.
 
 O access token fica somente em memória e o refresh token fica no cookie HttpOnly
 do backend. Apenas o valor CSRF retornado pelo login fica em `sessionStorage`
@@ -263,8 +278,8 @@ Os seletores de usuários/organizações mock ficam ocultos em modo API.
 A seleção entre múltiplas organizações reais não faz parte desta etapa.
 
 Validações: `npm run typecheck`, `npm run lint` (Oxlint), `npm test`,
-`npm run build` e `npm run test:e2e`. Os testes de autenticação usam respostas
-controladas sem credenciais reais; os E2E existentes verificam o modo mock.
+`npm run build`, `npm run test:e2e` e `npm run test:e2e:api`. Os testes de API
+usam respostas interceptadas e não fazem compras, pagamentos ou alterações reais.
 
 ## ROT-027: pedidos reais do fornecedor
 
