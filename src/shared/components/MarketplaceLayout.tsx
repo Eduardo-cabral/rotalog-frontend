@@ -10,6 +10,8 @@ import {
 import { useAuth } from "../../features/auth/hooks/useAuth";
 import { useLogout } from "../../features/auth/hooks/useLogout";
 import { useCart } from "../../features/cart/hooks/useCart";
+import { BuyerIcon } from "../../features/buyer/components/BuyerVisuals";
+import { buyerAuthorized } from "../../features/services/apiAuth.service";
 import { authMode } from "../api/config";
 
 function CartIcon() {
@@ -70,6 +72,12 @@ function MenuIcon({ kind }: { kind: "catalog" | "purchases" | "account" }) {
     );
 }
 
+const navigation = [
+    { label: "Catálogo de produtos", to: "/" },
+    { label: "Minhas compras", to: "/comprador/compras" },
+    { label: "Meu carrinho", to: "/comprador/carrinho" },
+];
+
 export function MarketplaceLayout() {
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -78,15 +86,6 @@ export function MarketplaceLayout() {
     const { suppliers } = useCart();
     const logout = useLogout();
     const location = useLocation();
-    const navigation = [
-        ...(authMode !== "api" || user?.capabilities?.includes("catalog:read")
-            ? [{ label: "Catálogo de produtos", to: "/" }]
-            : []),
-        ...(authMode !== "api" || user?.capabilities?.includes("purchase:read")
-            ? [{ label: "Minhas compras", to: "/comprador/compras" }]
-            : []),
-        ...(authMode === "api" ? [] : [{ label: "Meu carrinho", to: "/comprador/carrinho" }]),
-    ];
 
     const isCatalog = location.pathname === "/";
 
@@ -99,6 +98,13 @@ export function MarketplaceLayout() {
             ),
         0
     );
+    const visibleNavigation = navigation.filter(item => {
+        if (authMode !== "api") return true;
+        if (item.to === "/") return !!user && buyerAuthorized(user, "catalog:read");
+        if (item.to === "/comprador/compras") return !!user && buyerAuthorized(user, "purchase:read");
+        return !!user && buyerAuthorized(user, "checkout:create");
+    });
+    const canUseCart = authMode !== "api" || (!!user && buyerAuthorized(user, "checkout:create"));
 
     function closeMenu() {
         setMenuOpen(false);
@@ -135,14 +141,17 @@ export function MarketplaceLayout() {
 
                     <div className="mx-auto hidden w-full max-w-[440px] md:block">
                         {isCatalog ? (
-                            <input
-                                type="search"
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Buscar produtos ou fornecedores..."
-                                aria-label="Buscar produtos"
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-[13px] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            />
+                            <label className="relative block">
+                                <BuyerIcon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                                <input
+                                    type="search"
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Buscar produtos ou fornecedores..."
+                                    aria-label="Buscar produtos"
+                                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                                />
+                            </label>
                         ) : (
                             <p className="text-center text-xs font-medium text-slate-500">
                                 Marketplace RotaLog
@@ -151,21 +160,19 @@ export function MarketplaceLayout() {
                     </div>
 
                     <div className="ml-auto flex shrink-0 items-center gap-2">
-                        {authMode !== "api" && (
-                            <Link
-                                to="/comprador/carrinho"
-                                aria-label={`Carrinho de compras, ${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
-                                title="Meu carrinho"
-                                className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                                <CartIcon />
-                                {cartCount > 0 && (
-                                    <span className="ml-1.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700">
-                                        {cartCount}
-                                    </span>
-                                )}
-                            </Link>
-                        )}
+                        {canUseCart && <Link
+                            to="/comprador/carrinho"
+                            aria-label={`Carrinho de compras, ${cartCount} ${cartCount === 1 ? "item" : "itens"}`}
+                            title="Meu carrinho"
+                            className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                            <CartIcon />
+                            {cartCount > 0 && (
+                                <span className="ml-1.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700">
+                                    {cartCount}
+                                </span>
+                            )}
+                        </Link>}
 
                         {isAuthenticated ? (
                             <button
@@ -188,14 +195,17 @@ export function MarketplaceLayout() {
 
                 {isCatalog && (
                     <div className="border-t border-slate-100 px-4 py-2 md:hidden">
-                        <input
-                            type="search"
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Buscar produtos..."
-                            aria-label="Buscar produtos"
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none focus:border-blue-500"
-                        />
+                        <label className="relative block">
+                            <BuyerIcon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                            <input
+                                type="search"
+                                value={search}
+                                onChange={(event) => setSearch(event.target.value)}
+                                placeholder="Buscar produtos..."
+                                aria-label="Buscar produtos"
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                            />
+                        </label>
                     </div>
                 )}
             </header>
@@ -229,7 +239,7 @@ export function MarketplaceLayout() {
                     </div>
 
                     <nav aria-label="Menu do comprador" className="space-y-1">
-                        {navigation.map((item) => (
+                        {visibleNavigation.map((item) => (
                             <NavLink
                                 key={item.to}
                                 to={item.to}
@@ -249,21 +259,19 @@ export function MarketplaceLayout() {
                             </NavLink>
                         ))}
 
-                        {authMode !== "api" && (
-                            <Link
-                                to={isAuthenticated ? "/comprador/conta" : "/login"}
-                                onClick={closeMenu}
-                                className="block rounded-lg px-3 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <MenuIcon kind="account" />
-                                    Minha conta
-                                </span>
-                            </Link>
-                        )}
+                        <Link
+                            to={isAuthenticated ? "/comprador/conta" : "/login"}
+                            onClick={closeMenu}
+                            className="block rounded-lg px-3 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50"
+                        >
+                            <span className="flex items-center gap-2">
+                                <MenuIcon kind="account" />
+                                Minha conta
+                            </span>
+                        </Link>
                     </nav>
 
-                    {authMode !== "api" && <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <p className="text-[13px] font-bold">
                             Venda no RotaLog
                         </p>
@@ -279,7 +287,7 @@ export function MarketplaceLayout() {
                         >
                             Começar agora →
                         </Link>
-                    </div>}
+                    </div>
 
                     {user && (
                         <div className="mt-6 border-t border-slate-100 px-1 pt-4">
@@ -290,6 +298,7 @@ export function MarketplaceLayout() {
                             <p className="mt-1 truncate text-xs font-semibold">
                                 {user.name}
                             </p>
+                            {user.organizations?.find(org => org.id === user.organization_id)?.name && <p className="mt-1 break-words text-xs text-slate-500">{user.organizations.find(org => org.id === user.organization_id)?.name}</p>}
                         </div>
                     )}
                 </aside>
@@ -301,7 +310,7 @@ export function MarketplaceLayout() {
                         </div>
                     </main>
 
-                    <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-[11px] text-slate-400">
+                    <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-[11px] text-slate-600">
                         © 2026 RotaLog. Todos os direitos reservados.
                     </footer>
                 </div>

@@ -1,4 +1,5 @@
 ﻿import type { SupplierOrder } from "../mocks/orders.mock";
+import { shortOrderId } from "../api/orderAdapter";
 
 const DISPLAY_IDS_KEY = "rotalog:supplier-order-display-ids:v1";
 
@@ -25,7 +26,7 @@ export function getOrderDisplayIds(orders: SupplierOrder[]): Map<string, string>
     // A primeira atribuição também independe da ordenação do Kanban/Dashboard.
     for (const order of [...orders].sort((a, b) => a.id.localeCompare(b.id))) {
         if (!/^TESTE-/i.test(order.id) || /^TESTE-\d{1,6}$/.test(order.id)) {
-            labels.set(order.id, order.id);
+            labels.set(order.id, shortOrderId(order.id));
             continue;
         }
         if (labels.has(order.id)) continue;

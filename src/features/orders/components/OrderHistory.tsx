@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { SupplierOrder } from "../mocks/orders.mock";
 import { getOrderHistory, getOrderHistoryDay } from "../utils/orderHistory";
 import { ProductIcon } from "../../products/components/ProductIcon";
+import { shortOrderId } from "../api/orderAdapter";
 
 const input = "min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600";
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -17,7 +18,7 @@ function HistoryMonth({ month, records, displayIds, onDetails }: { month: string
             <table className="w-full min-w-[760px] text-left text-sm"><caption className="sr-only">Histórico de {label}</caption>
                 <thead className="bg-slate-50 text-slate-600"><tr>{["Pedido", "Comprador", "Conclusão / recusa", "Valor", "Situação / recusa", "Detalhes"].map(text => <th key={text} scope="col" className="px-4 py-3 font-medium">{text}</th>)}</tr></thead>
                 <tbody>{records.slice(current * pageSize, (current + 1) * pageSize).map(order => {
-                    const displayId = displayIds.get(order.id) ?? order.id;
+                    const displayId = displayIds.get(order.id) ?? shortOrderId(order.id);
                     const refused = order.commercialStatus === "Recusado";
                     return <tr key={order.id} className="border-t border-slate-100 align-top">
                         <td className="px-4 py-3 font-medium text-slate-900"><span className="block max-w-40 truncate" title={displayId}>{displayId}</span></td>

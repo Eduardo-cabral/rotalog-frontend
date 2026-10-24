@@ -44,8 +44,12 @@ test("pedido de teste aceita sem Web Locks, atualiza as duas telas e persiste ap
     }
     await expect(details.getByRole("region", { name: "Resumo financeiro", exact: true })).toContainText(currency(created.orderItems.reduce((sum: number, item: { quantity: number; unitPrice: number }) => sum + item.quantity * item.unitPrice, 0)));
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await details.getByRole("button", { name: "Copiar identificador", exact: true }).click();
-    await expect(details.getByRole("status")).toHaveText("Identificador copiado.");
+    const technicalDetails = details.locator("details");
+    await expect(technicalDetails).not.toHaveAttribute("open", "");
+    await technicalDetails.locator("summary").click();
+    await expect(technicalDetails.locator("code")).toHaveText(created.id);
+    await technicalDetails.getByRole("button", { name: "Copiar identificador", exact: true }).click();
+    await expect(technicalDetails.getByRole("status")).toHaveText("Identificador copiado.");
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(created.id);
     await details.getByRole("button", { name: "Fechar detalhes do pedido", exact: true }).click();
     expect(await balance(inventory, "PROD-001")).toEqual(before);
@@ -68,7 +72,7 @@ test("pedido de teste aceita sem Web Locks, atualiza as duas telas e persiste ap
     await expect(mirror.locator("article").filter({ hasText: "Cliente fictício" }).getByRole("button", { name: "Marcar como pronto" })).toBeVisible();
 });
 
-test("IDs antigos fora do UUID, rótulos persistidos, Dashboard e miniatura do produto correspondente", async ({ page }) => {
+test("rótulos curtos persistidos, identificador técnico recolhido e miniatura do produto correspondente", async ({ page }) => {
     await page.goto("/fornecedor/pedidos");
     await page.getByRole("button", { name: "+ Pedido de teste" }).click();
     const originalId = "TESTE-3e6968b543f1c00328015ea2578537";
@@ -97,7 +101,11 @@ test("IDs antigos fora do UUID, rótulos persistidos, Dashboard e miniatura do p
     await card.getByRole("button", { name: /^Ver detalhes/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: label, exact: true })).toBeVisible();
-    await expect(dialog.locator("code")).toHaveText(originalId);
+    const technicalDetails = dialog.locator("details");
+    await expect(technicalDetails).not.toHaveAttribute("open", "");
+    await expect(technicalDetails.locator("code")).toBeHidden();
+    await technicalDetails.locator("summary").click();
+    await expect(technicalDetails.locator("code")).toHaveText(originalId);
     await expect(dialog.getByRole("img")).toHaveCount(1);
     await expect(dialog.getByRole("img")).toBeVisible();
     await page.keyboard.press("Escape");

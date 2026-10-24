@@ -144,7 +144,6 @@ export function ProductDetailsModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="product-details-title"
-                aria-describedby="product-details-description"
                 tabIndex={-1}
                 className="flex max-h-[calc(100dvh_-_2rem)] w-full min-w-0 max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl [overflow-wrap:anywhere]"
             >
@@ -242,13 +241,6 @@ export function ProductDetailsModal({
                         </p>
                     </div>
 
-                    <p
-                        id="product-details-description"
-                        className="text-xs text-slate-500"
-                    >
-                        Informações demonstrativas. Os dados completos
-                        serão integrados à API do RotaLog.
-                    </p>
                 </div>
 
                 {/* Rodapé */}

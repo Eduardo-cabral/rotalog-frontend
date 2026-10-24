@@ -61,12 +61,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const [isLoading, setIsLoading] = useState(authMode === "api");
     const [sessionError, setSessionError] = useState("");
+    const [sessionNotice, setSessionNotice] = useState("");
     useEffect(() => {
         if (authMode !== "api") return;
         let active = true;
-        const unsubscribe = subscribeSessionExpired(() => {
+        const unsubscribe = subscribeSessionExpired(reason => {
             setUser(null);
-            setSessionError("Sessão encerrada. Entre novamente.");
+            setSessionError(reason === "password-changed" ? "" : "Sessão encerrada. Entre novamente.");
+            setSessionNotice(reason === "password-changed" ? "Senha alterada com sucesso. Entre com a nova senha." : "");
         });
         void apiAuthService.restore().then(restored => {
             if (active) { setUser(restored); setIsLoading(false); }
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 user,
                 isLoading,
                 sessionError,
+                sessionNotice,
                 isAuthenticated: user !== null,
                 login,
                 logout,

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SupplierOrder } from "../mocks/orders.mock";
 import type { SupplierOperationalAction } from "../services/supplierOrders.service";
+import { shortOrderId } from "../api/orderAdapter";
 
 export type OrderConfirmationAction = "accept" | SupplierOperationalAction;
 
@@ -65,7 +66,7 @@ export function OrderConfirmationModal({ order, displayId, action, onClose, onCo
         }} className="fixed inset-0 m-auto max-h-[calc(100dvh_-_1.5rem)] w-[calc(100%_-_1.5rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-0 text-slate-900 shadow-2xl [overflow-wrap:anywhere] backdrop:bg-slate-950/60">
             <div className="p-5 sm:p-6">
                 <h2 id={`${id}-title`} className="text-xl font-bold">{copy.title}</h2>
-                <p className="mt-3 break-words text-sm font-semibold">{displayId ?? order.id} · {order.customer}</p>
+                <p className="mt-3 break-words text-sm font-semibold">{displayId ?? shortOrderId(order.id)} · {order.customer}</p>
                 <p id={`${id}-description`} className="mt-2 text-sm text-slate-600">{copy.message}</p>
                 {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
                 <footer className="mt-6 flex flex-wrap justify-end gap-2">

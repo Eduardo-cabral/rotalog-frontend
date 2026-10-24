@@ -10,6 +10,7 @@ export type AuthContextValue = {
     user: AuthUser | null;
     isLoading: boolean;
     sessionError: string;
+    sessionNotice: string;
     isAuthenticated: boolean;
     login: (credentials: LoginCredentials) => Promise<AuthUser>;
     logout: () => Promise<void>;

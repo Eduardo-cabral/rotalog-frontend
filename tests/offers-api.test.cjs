@@ -20,8 +20,8 @@ const offer={id:'offer',supplier_organization_id:'org',is_active:true,version:7}
     assert.equal(eligibleWarehouse(warehouse,'org'),true);
     for(const change of [{supplier_organization_id:'other'},{is_active:false},{geocoding_state:'PENDING'}])assert.equal(eligibleWarehouse({...warehouse,...change},'org'),false);
     const calls=[];
-    const repository=new OffersRepository('org',async(path,options)=>{
-        calls.push({path,options});
+    const repository=new OffersRepository('org',async(path,options,replayUnauthorized)=>{
+        calls.push({path,options,replayUnauthorized});
         if(options.method==='POST')return offer;
         return path.includes('/warehouses')?{items:[warehouse],total:1,page:1,page_size:100}:{items:[offer],total:1,page:1,page_size:25};
     });
@@ -32,6 +32,7 @@ const offer={id:'offer',supplier_organization_id:'org',is_active:true,version:7}
     const body=JSON.parse(calls.at(-1).options.body);
     assert.deepEqual(body,{product_id:'product',warehouse_id:'warehouse',unit_price:'12.30',currency:'BRL',minimum_order_quantity:3});
     assert.equal(calls.at(-1).path,'/api/v1/suppliers/org/offers');
+    assert.ok(calls.filter(call=>call.options.method==='POST').every(call=>call.replayUnauthorized===false));
     await repository.update(offer,'15.20','4');
     assert.deepEqual(JSON.parse(calls.at(-1).options.body),{expected_version:7,unit_price:'15.20',currency:'BRL',minimum_order_quantity:4});
     await repository.pause(offer);assert.deepEqual(JSON.parse(calls.at(-1).options.body),{expected_version:7});
@@ -52,5 +53,46 @@ const offer={id:'offer',supplier_organization_id:'org',is_active:true,version:7}
     let pageCalls=0;
     const paginated=new OffersRepository('org',async()=>{pageCalls++;return {items:pageCalls===1?Array.from({length:100},(_,i)=>({...warehouse,id:String(i)})):[{...warehouse,id:'last'}],total:101,page:pageCalls,page_size:100};});
     assert.equal((await paginated.warehouses()).length,101);assert.equal(pageCalls,2);
-    console.log('Offers API: ownership, eligibility, pagination, exact money, validation, versions and uncertain writes passed.');
+    const {warehouseValues,warehouseError}=load('src/features/products/api/offersRepository.ts',{'../../services/apiAuth.service':{},'../../../shared/api/http':http});
+    const input={name:' Central ',address:' Rua A, 10 ',opening_hours:' 08h-18h ',region:' Manaus '};
+    const clean=JSON.parse(JSON.stringify(warehouseValues(input)));
+    assert.deepEqual(clean,{name:'Central',address:'Rua A, 10',opening_hours:'08h-18h',region:'Manaus'});
+    for(const [key,min,max] of [['name',1,200],['address',5,500],['opening_hours',1,200],['region',1,100]]) {
+        assert.throws(()=>warehouseValues({...clean,[key]:' '.repeat(min)}));
+        assert.throws(()=>warehouseValues({...clean,[key]:'a'.repeat(max+1)}));
+        assert.equal(warehouseValues({...clean,[key]:'a'.repeat(max)})[key].length,max);
+    }
+    let warehouseCalls=0,release;
+    const warehouseRepo=new OffersRepository('authenticated-org',async(path,options,replayUnauthorized)=>{
+        warehouseCalls++;
+        assert.equal(path,'/api/v1/suppliers/authenticated-org/warehouses');
+        assert.equal(replayUnauthorized,false);
+        assert.equal(options.headers['X-Organization-Id'],'authenticated-org');
+        assert.deepEqual(JSON.parse(options.body),clean);
+        await new Promise(resolve=>{release=resolve;});
+        return {...warehouse,id:'new',supplier_organization_id:'authenticated-org',geocoding_state:'PENDING'};
+    });
+    const creation=warehouseRepo.createWarehouse(input);
+    await assert.rejects(warehouseRepo.createWarehouse(input),/andamento/);
+    release();
+    const created=await creation;
+    assert.equal(created.geocoding_state,'PENDING');assert.equal(warehouseCalls,1);
+    assert.equal(eligibleWarehouse(created,'authenticated-org'),false);
+    let attemptsWarehouse=0;
+    const uncertainWarehouse=new OffersRepository('org',async()=>{attemptsWarehouse++;throw new Error('Network failure');});
+    await assert.rejects(uncertainWarehouse.createWarehouse(clean),/Network/);
+    await assert.rejects(uncertainWarehouse.createWarehouse(clean),/Confira/);
+    assert.equal(attemptsWarehouse,1);assert.equal(uncertainWarehouse.warehouseNeedsReview(),true);
+    uncertainWarehouse.acknowledgeWarehouseReview();assert.equal(uncertainWarehouse.warehouseNeedsReview(),false);
+    const foreignWarehouse=new OffersRepository('org',async()=>({...warehouse,supplier_organization_id:'other'}));
+    await assert.rejects(foreignWarehouse.createWarehouse(clean),/outra organização/);
+    assert.equal(foreignWarehouse.warehouseNeedsReview(),true);
+    await assert.rejects(new OffersRepository('',async()=>{throw new Error('Unexpected transport');}).createWarehouse(clean),/Organização/);
+    for(const status of [401,403,404,409,422,500]) {
+        const failed=new OffersRepository('org',async()=>{throw new http.ApiError(status);});
+        await assert.rejects(failed.createWarehouse(clean),error=>error.status===status);
+        assert.equal(failed.warehouseNeedsReview(),status>=500);
+        assert.ok(warehouseError(new http.ApiError(status)).length>0);
+    }
+    console.log('Offers and warehouses API: validation, isolation, eligibility, concurrency, errors and uncertain writes passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

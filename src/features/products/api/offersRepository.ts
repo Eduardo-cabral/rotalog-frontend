@@ -8,6 +8,22 @@ export type Warehouse = {
     latitude: string | null; longitude: string | null; is_active: boolean;
     version: number; demo_run_id: string; is_synthetic: true;
 };
+export type WarehouseCreate = Pick<Warehouse, "name" | "address" | "opening_hours" | "region">;
+export function warehouseValues(input: WarehouseCreate): WarehouseCreate {
+    const result = {name: input.name.trim(), address: input.address.trim(), opening_hours: input.opening_hours.trim(), region: input.region.trim()};
+    for (const [key, label, min, max] of [["name", "Nome", 1, 200], ["address", "Endereço", 5, 500], ["opening_hours", "Horário de funcionamento", 1, 200], ["region", "Região", 1, 100]] as const) {
+        const length = Array.from(result[key]).length;
+        if (length < min || length > max) throw new Error(`${label} deve conter entre ${min} e ${max} caracteres.`);
+    }
+    return result;
+}
+export function warehouseError(error: unknown): string {
+    if (error instanceof ApiError) {
+        const messages: Record<number, string> = {401: "Sessão expirada. Entre novamente.", 403: "Sem permissão para cadastrar depósitos.", 404: "Organização fornecedora não encontrada ou não autorizada.", 409: "Cadastro indisponível neste momento. Atualize os depósitos e revise a operação.", 422: "Dados inválidos. Revise nome, endereço, horário e região."};
+        return messages[error.status] ?? "Não foi possível confirmar o cadastro do depósito.";
+    }
+    return error instanceof Error ? error.message : "Não foi possível cadastrar o depósito.";
+}
 export type Offer = {
     id: string; product_id: string; product_name: string; supplier_organization_id: string;
     supplier_name: string; warehouse_id: string; region: string; unit_price: string;
@@ -16,7 +32,7 @@ export type Offer = {
 };
 export type OfferPage = {items: Offer[]; total: number; page: number; page_size: number};
 type WarehousePage = {items: Warehouse[]; total: number; page: number; page_size: number};
-type Transport = <T>(path: string, options?: RequestInit) => Promise<T>;
+type Transport = <T>(path: string, options?: RequestInit, replayUnauthorized?: boolean) => Promise<T>;
 
 export function eligibleWarehouse(warehouse: Warehouse, organizationId: string): boolean {
     return warehouse.supplier_organization_id === organizationId && warehouse.is_active && warehouse.geocoding_state === "CONFIRMED";
@@ -53,6 +69,7 @@ export class OffersRepository {
     private transport: Transport;
     private pending = false;
     private uncertainCreation = false;
+    private uncertainWarehouse = false;
     constructor(organizationId: string, transport: Transport = authenticatedRequest) {
         this.organizationId = organizationId; this.transport = transport;
     }
@@ -77,6 +94,24 @@ export class OffersRepository {
         } while (items.length < total);
         return items;
     }
+    warehouseNeedsReview() {return this.uncertainWarehouse;}
+    acknowledgeWarehouseReview() {this.uncertainWarehouse = false;}
+    async createWarehouse(input: WarehouseCreate): Promise<Warehouse> {
+        const body = warehouseValues(input);
+        const options = this.options();
+        if (this.pending) throw new Error("Já existe uma operação em andamento.");
+        if (this.uncertainWarehouse) throw new Error("Confira os depósitos antes de iniciar outro cadastro.");
+        this.pending = true;
+        try {
+            const result = await this.transport<Warehouse>(`/api/v1/suppliers/${encodeURIComponent(this.organizationId)}/warehouses`, {...options, method: "POST", headers: {...options.headers, "Content-Type": "application/json"}, body: JSON.stringify(body)}, false);
+            this.own(result.supplier_organization_id);
+            if (!result.id || !result.geocoding_state || typeof result.is_active !== "boolean") throw new Error("Resposta inesperada. Consulte os depósitos para confirmar o cadastro.");
+            return result;
+        } catch (error) {
+            if (uncertainWrite(error)) this.uncertainWarehouse = true;
+            throw error;
+        } finally {this.pending = false;}
+    }
     async offers(page = 1): Promise<OfferPage> {
         const query = new URLSearchParams({supplier_id: this.organizationId, page: String(page), page_size: "25"});
         const response = await this.transport<OfferPage>(`/api/v1/offers?${query}`, this.options());
@@ -92,7 +127,7 @@ export class OffersRepository {
         this.pending = true;
         try {
             // No retry of transport failures. The API currently has no creation idempotency key.
-            const offer = await this.transport<Offer>(path, {...options, method:"POST", headers:{...options.headers, "Content-Type":"application/json"}, body:JSON.stringify(body)});
+            const offer = await this.transport<Offer>(path, {...options, method:"POST", headers:{...options.headers, "Content-Type":"application/json"}, body:JSON.stringify(body)}, false);
             this.own(offer.supplier_organization_id);
             return offer;
         } catch (error) {
@@ -102,7 +137,7 @@ export class OffersRepository {
     }
     create(product: CatalogProduct, warehouse: Warehouse, price: string, quantity: string) {
         if (product.publication_state !== "PUBLISHED") throw new Error("Selecione um produto publicado.");
-        if (!eligibleWarehouse(warehouse, this.organizationId)) throw new Error("Selecione um depósito próprio, ativo e com geocodificação confirmada.");
+        if (!eligibleWarehouse(warehouse, this.organizationId)) throw new Error("Selecione um depósito próprio, ativo e com a localização confirmada.");
         const body = {product_id:product.id, warehouse_id:warehouse.id, unit_price:offerPrice(price), currency:"BRL", minimum_order_quantity:minimumQuantity(quantity)};
         return this.post(`/api/v1/suppliers/${encodeURIComponent(this.organizationId)}/offers`, body, true);
     }

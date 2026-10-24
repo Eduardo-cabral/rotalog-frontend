@@ -1,11 +1,15 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { supplierPermissions } from "../../services/apiAuth.service";
 import { OrdersRepository } from "./ordersRepository";
 import { OrdersContext } from "./ordersContext";
 
 export function ApiOrdersProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
     const organizationId = user?.organization_id ?? "";
+    if (!user || !supplierPermissions(user).includes("orders:view")) {
+        return <OrdersContext.Provider value={null}>{children}</OrdersContext.Provider>;
+    }
     return <SessionOrdersProvider key={`${user?.id}:${organizationId}`} organizationId={organizationId}>{children}</SessionOrdersProvider>;
 }
 function SessionOrdersProvider({ organizationId, children }: { organizationId: string; children: ReactNode }) {

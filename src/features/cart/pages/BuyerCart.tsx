@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../hooks/useCart";
+import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../../buyer/components/BuyerVisuals";
 
 const currency = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -60,7 +61,7 @@ export function BuyerCart() {
     return (
         <div className="mx-auto w-full max-w-[960px] text-slate-900">
             <header className="mb-6">
-                <p className="text-xs font-semibold text-blue-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
                     RotaLog • Portal do Comprador
                 </p>
 
@@ -75,43 +76,12 @@ export function BuyerCart() {
             </header>
 
             {suppliers.length === 0 ? (
-                <section className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-sm">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="38"
-                            height="38"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-blue-700"
-                            aria-hidden="true"
-                        >
-                            <circle cx="9" cy="21" r="1" />
-                            <circle cx="20" cy="21" r="1" />
-                            <path d="M1 1h4l2.5 13h12l2-9H6" />
-                        </svg>
-                    </div>
-
-                    <h2 className="mt-5 text-lg font-semibold tracking-tight">
-                        Seu carrinho está vazio
-                    </h2>
-
-                    <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
-                        Explore nosso catálogo e adicione produtos para
-                        começar a organizar suas compras.
-                    </p>
-
-                    <Link
-                        to="/"
-                        className="mt-7 inline-flex items-center rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
-                    >
-                        Explorar produtos →
+                <BuyerEmptyState icon="cart" title="Seu carrinho está vazio">
+                    <p>Explore nosso catálogo e encontre produtos para sua empresa.</p>
+                    <Link to="/" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                        Explorar produtos <BuyerIcon name="arrow-right" className="h-4 w-4" />
                     </Link>
-                </section>
+                </BuyerEmptyState>
             ) : (
                 <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                     <section
@@ -119,15 +89,13 @@ export function BuyerCart() {
                         className="min-w-0 space-y-5"
                     >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-sm font-medium text-slate-600">
-                                {itemCount} item(ns) de {suppliers.length} fornecedor(es)
-                            </p>
+                            <BuyerStatus tone="progress" icon="cart">{itemCount} {itemCount === 1 ? "unidade" : "unidades"} · {suppliers.length} {suppliers.length === 1 ? "fornecedor" : "fornecedores"}</BuyerStatus>
 
                             <Link
                                 to="/"
-                                className="text-xs font-semibold text-blue-700 hover:underline"
+                                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
                             >
-                                + Continuar comprando
+                                <BuyerIcon name="arrow-left" className="h-4 w-4" />Continuar comprando
                             </Link>
                         </div>
 
@@ -145,9 +113,7 @@ export function BuyerCart() {
                                 >
                                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
                                         <div>
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                                                Fornecedor
-                                            </p>
+                                            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-700"><BuyerIcon name="store" className="h-4 w-4" />Fornecedor</p>
 
                                             <h2 className="mt-1 text-lg font-bold">
                                                 {supplier.supplierName}
@@ -166,16 +132,16 @@ export function BuyerCart() {
                                                 className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between"
                                             >
                                                 <div className="min-w-0 flex-1">
-                                                    <h3 className="font-semibold leading-6">
+                                                    <h3 className="text-base font-semibold leading-6 text-slate-900">
                                                         {item.productName}
                                                     </h3>
 
-                                                    <p className="mt-1 text-sm text-slate-500">
+                                                    <p className="mt-1 text-sm text-slate-600">
                                                         {currency.format(item.unitPrice)} por unidade
                                                     </p>
 
                                                     <div className="mt-4 flex flex-wrap items-center gap-4">
-                                                        <div className="inline-flex items-center overflow-hidden rounded-xl border border-slate-200">
+                                                        <div                                                         className="inline-flex min-h-11 items-center overflow-hidden rounded-xl border border-slate-200">
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
@@ -217,9 +183,9 @@ export function BuyerCart() {
                                                             onClick={() =>
                                                                 removeProduct(supplier.supplierId, item.id)
                                                             }
-                                                            className="text-sm font-semibold text-red-600 transition hover:text-red-700 hover:underline"
+                                                            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                                                         >
-                                                            Remover
+                                                            <BuyerIcon name="trash" className="h-4 w-4" />Remover
                                                         </button>
                                                     </div>
                                                 </div>
@@ -228,7 +194,7 @@ export function BuyerCart() {
                                                     <p className="text-xs text-slate-500">
                                                         Subtotal do item
                                                     </p>
-                                                    <p className="mt-1 text-lg font-extrabold">
+                                                    <p className="mt-1 text-lg font-extrabold tabular-nums text-blue-950">
                                                         {currency.format(
                                                             item.quantity * item.unitPrice
                                                         )}
@@ -284,7 +250,7 @@ export function BuyerCart() {
                     </section>
 
                     <aside className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:sticky xl:top-24">
-                        <h2 className="text-base font-bold tracking-tight">
+                        <h2 className="text-lg font-bold tracking-tight text-slate-900">
                             Resumo da compra
                         </h2>
 
@@ -296,7 +262,7 @@ export function BuyerCart() {
                             , um para cada fornecedor.
                         </p>
 
-                        <div className="mt-6 space-y-4 text-sm">
+                        <div className="mt-5 space-y-4 text-sm">
                             <div className="flex justify-between gap-3">
                                 <span className="text-slate-600">Produtos</span>
                                 <span className="font-semibold">
@@ -311,16 +277,16 @@ export function BuyerCart() {
                                 </span>
                             </div>
 
-                            <div className="flex justify-between gap-3 border-t border-slate-200 pt-4">
-                                <span className="text-base font-bold">Total dos produtos</span>
-                                <span className="text-xl font-extrabold text-blue-700">
+                            <div className="flex justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                                <span className="text-base font-bold text-blue-950">Total dos produtos</span>
+                                <span className="text-xl font-extrabold tabular-nums text-blue-800">
                                     {currency.format(total)}
                                 </span>
                             </div>
                         </div>
 
                         <div className="mt-6 space-y-4 border-t border-slate-200 pt-5">
-                            <h3 className="font-bold">
+                            <h3 className="font-bold text-slate-900">
                                 Condições da compra
                             </h3>
 
@@ -370,9 +336,10 @@ export function BuyerCart() {
                                 type="button"
                                 disabled={!canReviewPurchase}
                                 onClick={() => setReviewConfirmed(true)}
-                                className="w-full rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 Revisar condições da compra
+                                <BuyerIcon name="arrow-right" className="h-4 w-4" />
                             </button>
 
                             {reviewConfirmed && (

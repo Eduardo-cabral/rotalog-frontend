@@ -1,15 +1,16 @@
 
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useRef, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { authMode } from "../../../shared/api/config";
+import { ApiError } from "../../../shared/api/http";
+import { apiAuthService } from "../../services/apiAuth.service";
 
 type AccountType = "buyer" | "supplier";
 
 type RegisterForm = {
     name: string;
     companyName: string;
-    cnpj: string;
     email: string;
-    phone: string;
     password: string;
     confirmPassword: string;
 };
@@ -17,21 +18,21 @@ type RegisterForm = {
 const initialForm: RegisterForm = {
     name: "",
     companyName: "",
-    cnpj: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
 };
 
 export function Register() {
+    const navigate = useNavigate();
     const [accountType, setAccountType] =
         useState<AccountType>("buyer");
 
     const [form, setForm] = useState<RegisterForm>(initialForm);
     const [showPassword, setShowPassword] = useState(false);
-    const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submissionInProgress = useRef(false);
 
     function updateField(field: keyof RegisterForm, value: string) {
         setForm((current) => ({
@@ -40,21 +41,43 @@ export function Register() {
         }));
 
         setError("");
-        setMessage("");
     }
 
     function changeAccountType(type: AccountType) {
         setAccountType(type);
         setForm(initialForm);
         setError("");
-        setMessage("");
     }
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (submissionInProgress.current || authMode !== "api") return;
 
-        if (form.password.length < 8) {
-            setError("A senha deve ter pelo menos 8 caracteres.");
+        const email = form.email.trim().toLowerCase();
+        const passwordLength = Array.from(form.password).length;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || Array.from(email).length > 254) {
+            setError("Informe um e-mail válido com até 254 caracteres.");
+            return;
+        }
+
+        if (!email.endsWith(".invalid")) {
+            setError("Use um e-mail sintético com domínio terminado em .invalid.");
+            return;
+        }
+
+        if (!form.name.trim() || Array.from(form.name.trim()).length > 200) {
+            setError("Informe um nome com até 200 caracteres.");
+            return;
+        }
+
+        if (!form.companyName.trim() || Array.from(form.companyName.trim()).length > 200) {
+            setError("Informe o nome da organização com até 200 caracteres.");
+            return;
+        }
+
+        if (passwordLength < 12 || passwordLength > 1024) {
+            setError("A senha deve conter de 12 a 1.024 caracteres.");
             return;
         }
 
@@ -63,19 +86,47 @@ export function Register() {
             return;
         }
 
-        if (accountType === "supplier") {
-            const digits = form.cnpj.replace(/\D/g, "");
-
-            if (digits.length !== 14) {
-                setError("Informe um CNPJ com 14 dígitos.");
-                return;
-            }
-        }
-
+        submissionInProgress.current = true;
+        setIsSubmitting(true);
         setError("");
-        setMessage(
-            "Formulário validado. O cadastro será integrado à API do RotaLog."
-        );
+
+        try {
+            const user = await apiAuthService.register({
+                email,
+                password: form.password,
+                name: form.name.trim(),
+                organization_name: form.companyName.trim(),
+                role: accountType === "buyer" ? "BUYER_ADMIN" : "SUPPLIER_OPERATOR",
+            });
+            navigate("/login", {
+                replace: true,
+                state: {
+                    registrationEmail: user.email,
+                    registrationNotice: "Cadastro criado. Entre com seu e-mail e senha para acessar sua conta.",
+                },
+            });
+        } catch (submitError) {
+            if (submitError instanceof ApiError && submitError.code === "EMAIL_ALREADY_REGISTERED") {
+                setError("Este e-mail já está cadastrado. Tente fazer login.");
+            } else if (submitError instanceof ApiError && submitError.code === "DEMO_UNAVAILABLE") {
+                setError("O cadastro está temporariamente indisponível. Tente novamente mais tarde.");
+            } else if (submitError instanceof ApiError && submitError.code === "DEMO_DISABLED") {
+                setError("O cadastro está desabilitado neste ambiente de demonstração.");
+            } else if (submitError instanceof ApiError && submitError.status === 422) {
+                setError("Os dados não atendem às regras do cadastro. Confira o e-mail .invalid e os campos informados.");
+            } else if (submitError instanceof ApiError && submitError.status >= 500) {
+                setError("O servidor não conseguiu concluir o cadastro. Tente novamente mais tarde.");
+            } else {
+                setError(
+                    submitError instanceof Error
+                        ? submitError.message
+                        : "Não foi possível concluir o cadastro."
+                );
+            }
+        } finally {
+            submissionInProgress.current = false;
+            setIsSubmitting(false);
+        }
     }
 
     const inputClass =
@@ -124,6 +175,11 @@ export function Register() {
                         <p className="mt-1 text-sm text-slate-500">
                             Faça parte da plataforma RotaLog.
                         </p>
+                        {authMode === "mock" && (
+                            <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                                O cadastro não está disponível no modo mock. Nenhuma conta será criada.
+                            </p>
+                        )}
 
                         <div
                             className="mt-5 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1"
@@ -131,6 +187,7 @@ export function Register() {
                         >
                             <button
                                 type="button"
+                                disabled={isSubmitting}
                                 onClick={() => changeAccountType("buyer")}
                                 aria-pressed={accountType === "buyer"}
                                 className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${accountType === "buyer"
@@ -143,6 +200,7 @@ export function Register() {
 
                             <button
                                 type="button"
+                                disabled={isSubmitting}
                                 onClick={() => changeAccountType("supplier")}
                                 aria-pressed={accountType === "supplier"}
                                 className={`rounded-md px-4 py-2.5 text-sm font-semibold transition ${accountType === "supplier"
@@ -154,44 +212,25 @@ export function Register() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="mt-5 space-y-3">
-                            {accountType === "supplier" && (
-                                <>
-                                    <div>
-                                        <label htmlFor="companyName" className={labelClass}>
-                                            Razão social
-                                        </label>
-                                        <input
-                                            id="companyName"
-                                            required
-                                            value={form.companyName}
-                                            onChange={(event) =>
-                                                updateField("companyName", event.target.value)
-                                            }
-                                            placeholder="Nome da empresa"
-                                            className={inputClass}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label htmlFor="cnpj" className={labelClass}>
-                                            CNPJ
-                                        </label>
-                                        <input
-                                            id="cnpj"
-                                            required
-                                            inputMode="numeric"
-                                            maxLength={18}
-                                            value={form.cnpj}
-                                            onChange={(event) =>
-                                                updateField("cnpj", event.target.value)
-                                            }
-                                            placeholder="00.000.000/0000-00"
-                                            className={inputClass}
-                                        />
-                                    </div>
-                                </>
-                            )}
+                        <form onSubmit={handleSubmit} className="mt-5 space-y-3" aria-busy={isSubmitting} noValidate>
+                            <div>
+                                <label htmlFor="companyName" className={labelClass}>
+                                    {accountType === "buyer" ? "Nome da organização" : "Razão social"}
+                                </label>
+                                <input
+                                    id="companyName"
+                                    required
+                                    maxLength={400}
+                                    autoComplete="organization"
+                                    disabled={isSubmitting}
+                                    value={form.companyName}
+                                    onChange={(event) =>
+                                        updateField("companyName", event.target.value)
+                                    }
+                                    placeholder="Nome da organização"
+                                    className={inputClass}
+                                />
+                            </div>
 
                             <div>
                                 <label htmlFor="name" className={labelClass}>
@@ -202,7 +241,9 @@ export function Register() {
                                 <input
                                     id="name"
                                     required
+                                    maxLength={400}
                                     autoComplete="name"
+                                    disabled={isSubmitting}
                                     value={form.name}
                                     onChange={(event) =>
                                         updateField("name", event.target.value)
@@ -212,43 +253,30 @@ export function Register() {
                                 />
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div>
-                                    <label htmlFor="email" className={labelClass}>
-                                        E-mail
-                                    </label>
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        required
-                                        autoComplete="email"
-                                        value={form.email}
-                                        onChange={(event) =>
-                                            updateField("email", event.target.value)
-                                        }
-                                        placeholder="seu@email.com"
-                                        className={inputClass}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label htmlFor="phone" className={labelClass}>
-                                        Telefone
-                                    </label>
-                                    <input
-                                        id="phone"
-                                        type="tel"
-                                        required
-                                        autoComplete="tel"
-                                        value={form.phone}
-                                        onChange={(event) =>
-                                            updateField("phone", event.target.value)
-                                        }
-                                        placeholder="(00) 00000-0000"
-                                        className={inputClass}
-                                    />
-                                </div>
+                            <div>
+                                <label htmlFor="email" className={labelClass}>
+                                    E-mail
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    required
+                                    maxLength={508}
+                                    autoComplete="email"
+                                    disabled={isSubmitting}
+                                    value={form.email}
+                                    onChange={(event) =>
+                                        updateField("email", event.target.value)
+                                    }
+                                    placeholder="seu@email.invalid"
+                                    className={inputClass}
+                                />
                             </div>
+                            {authMode === "api" && (
+                                <p className="text-xs leading-5 text-slate-500">
+                                    O cadastro via API aceita e-mails sintéticos terminados em .invalid. Telefone e CNPJ ainda não são recebidos pelo serviço.
+                                </p>
+                            )}
 
                             <div>
                                 <div className="mb-1.5 flex items-center justify-between">
@@ -258,6 +286,7 @@ export function Register() {
 
                                     <button
                                         type="button"
+                                        disabled={isSubmitting}
                                         onClick={() =>
                                             setShowPassword((current) => !current)
                                         }
@@ -271,13 +300,14 @@ export function Register() {
                                     id="password"
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    minLength={8}
+                                    minLength={12}
                                     autoComplete="new-password"
+                                    disabled={isSubmitting}
                                     value={form.password}
                                     onChange={(event) =>
                                         updateField("password", event.target.value)
                                     }
-                                    placeholder="Mínimo de 8 caracteres"
+                                    placeholder="Mínimo de 12 caracteres"
                                     className={inputClass}
                                 />
                             </div>
@@ -290,8 +320,9 @@ export function Register() {
                                     id="confirmPassword"
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    minLength={8}
+                                    minLength={12}
                                     autoComplete="new-password"
+                                    disabled={isSubmitting}
                                     value={form.confirmPassword}
                                     onChange={(event) =>
                                         updateField("confirmPassword", event.target.value)
@@ -307,17 +338,12 @@ export function Register() {
                                 </p>
                             )}
 
-                            {message && (
-                                <p role="status" className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
-                                    {message}
-                                </p>
-                            )}
-
                             <button
                                 type="submit"
-                                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                disabled={authMode !== "api" || isSubmitting}
+                                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                Criar conta
+                                {isSubmitting ? "Enviando..." : "Criar conta"}
                             </button>
                         </form>
 
