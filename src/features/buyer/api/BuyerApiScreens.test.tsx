@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -60,6 +60,19 @@ const lowerOffer = {
     supplier_name: "Fornecedor menor",
     unit_price: "4.00",
 };
+const thirdOffer = {
+    ...offer,
+    id: "offer-3",
+    supplier_name: "Fornecedor terceiro",
+    unit_price: "80.00",
+};
+const unrelatedOffer = {
+    ...offer,
+    id: "offer-other-product",
+    product_id: "product-2",
+    product_name: "Feijão",
+    supplier_name: "Fornecedor de outro produto",
+};
 const purchase = {
     id: "purchase-1",
     checkout_id: "checkout-1",
@@ -114,12 +127,72 @@ test("renders API products using the lowest active offer price", async () => {
     expect(screen.getByText(/menor oferta por Fornecedor menor/)).toBeTruthy();
 });
 
-test("renders product offers and their API price", async () => {
+test("compares exactly two active API offers and highlights the lower unit price", async () => {
+    mocks.offers.mockResolvedValueOnce([offer, lowerOffer, unrelatedOffer]);
     renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
 
     expect(await screen.findByRole("heading", { name: "Ofertas dos fornecedores" })).toBeTruthy();
     expect(screen.getByText("Fornecedor real")).toBeTruthy();
     expect(screen.getByText("R$ 149,90")).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /outro produto/i })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Fornecedor real/ }));
+    expect(screen.getByText("1 de 2 ofertas selecionadas.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Fornecedor menor/ }));
+
+    expect(screen.getByRole("heading", { name: "Comparação de ofertas" })).toBeTruthy();
+    expect(screen.getByText("Menor preço unitário")).toBeTruthy();
+    expect(screen.getByText(/O destaque considera somente o preço unitário/)).toBeTruthy();
+    expect(screen.getAllByText("Quantidade mínima")).toHaveLength(2);
+    expect(screen.getAllByText("Disponibilidade")).toHaveLength(2);
+});
+
+test("limits selection to two and allows replacing a selected offer", async () => {
+    mocks.offers.mockResolvedValueOnce([offer, lowerOffer, thirdOffer]);
+    renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Fornecedor real/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Fornecedor menor/ }));
+    const thirdSelection = screen.getByRole("checkbox", { name: /Fornecedor terceiro/ }) as HTMLInputElement;
+    expect(thirdSelection.disabled).toBe(true);
+    expect(screen.getByText("2 de 2 ofertas selecionadas. Desmarque uma para escolher outra.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Fornecedor real/ }));
+    expect(thirdSelection.disabled).toBe(false);
+    fireEvent.click(thirdSelection);
+    expect(screen.getByRole("heading", { name: "Comparação de ofertas" })).toBeTruthy();
+    expect(screen.getAllByText("Fornecedor terceiro").length).toBeGreaterThan(1);
+});
+
+test("explains when only one offer is available and has no comparison", async () => {
+    mocks.offers.mockResolvedValueOnce([offer]);
+    renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
+
+    expect(await screen.findByText(/Há apenas uma oferta ativa/)).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: /Fornecedor real/ }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.queryByRole("heading", { name: "Comparação de ofertas" })).toBeNull();
+});
+
+test("shows empty, loading, and error states for product offers", async () => {
+    mocks.offers.mockResolvedValueOnce([]);
+    renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
+    expect(await screen.findByText("NÃ£o hÃ¡ ofertas ativas para este produto.")).toBeTruthy();
+    cleanup();
+
+    let resolveProduct!: (value: typeof product) => void;
+    let resolveOffers!: (value: (typeof offer)[]) => void;
+    mocks.product.mockReturnValueOnce(new Promise<typeof product>(resolve => { resolveProduct = resolve; }));
+    mocks.offers.mockReturnValueOnce(new Promise<(typeof offer)[]>(resolve => { resolveOffers = resolve; }));
+    renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
+    expect(screen.getByRole("status").textContent).toContain("Carregando produto e ofertas");
+    resolveProduct(product);
+    resolveOffers([offer, lowerOffer]);
+    expect(await screen.findByRole("heading", { name: "Ofertas dos fornecedores" })).toBeTruthy();
+    cleanup();
+
+    mocks.offers.mockRejectedValueOnce(new Error("Ofertas indisponíveis"));
+    renderRoute("/produto/product-1", <BuyerApiProductDetails />, "/produto/:productId");
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText("Ofertas indisponíveis")).toBeTruthy();
 });
 
 test("shows explicit empty and error states for API catalog data", async () => {
