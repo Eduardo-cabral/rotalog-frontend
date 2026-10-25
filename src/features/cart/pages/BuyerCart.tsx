@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../hooks/useCart";
 import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../../buyer/components/BuyerVisuals";
+import { authMode } from "../../../shared/api/config";
+import { DemoDataBadge } from "../../buyer/components/DemoDataBadge";
 
 const currency = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -73,6 +75,7 @@ export function BuyerCart() {
                     Confira os produtos selecionados, os fornecedores e as
                     condições antes de continuar.
                 </p>
+                {suppliers.length > 0 && <div className="mt-3"><DemoDataBadge visible={authMode === "mock"}/></div>}
             </header>
 
             {suppliers.length === 0 ? (

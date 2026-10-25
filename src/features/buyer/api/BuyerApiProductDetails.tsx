@@ -5,6 +5,12 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { productCategory, type CatalogProduct } from "../../products/api/catalogRepository";
 import type { Offer } from "../../products/api/offersRepository";
 import { BuyerReadRepository, buyerReadError } from "./BuyerReadRepository";
+import {
+    OfferComparisonPanel,
+    OfferComparisonSelector,
+    OfferComparisonStatus,
+} from "./BuyerOfferComparison";
+import { useOfferComparison } from "./useBuyerOfferComparison";
 
 type Details = { product: CatalogProduct; offers: Offer[] };
 type LoadState = { key: string; data?: Details; error?: string };
@@ -19,6 +25,11 @@ export function BuyerApiProductDetails() {
     const [result, setResult] = useState<LoadState>({ key: "" });
     const [revision, setRevision] = useState(0);
     const requestKey = `${user?.organization_id ?? ""}:${productId}:${revision}`;
+    const data = result.key === requestKey ? result.data : undefined;
+    const { activeOffers, selectedOfferIds, selectedOffers, toggleOffer } = useOfferComparison(
+        data?.offers ?? [],
+        data?.product.id ?? productId,
+    );
 
     useEffect(() => {
         let active = true;
@@ -35,7 +46,6 @@ export function BuyerApiProductDetails() {
     }, [productId, repository, requestKey]);
 
     const loading = result.key !== requestKey;
-    const data = result.key === requestKey ? result.data : undefined;
     const error = result.key === requestKey ? result.error ?? "" : "";
     if (loading) return <p className="rounded-xl border border-slate-200 bg-white p-5" role="status">Carregando produto e ofertas...</p>;
     if (error || !data) {
@@ -50,8 +60,6 @@ export function BuyerApiProductDetails() {
             </section>
         );
     }
-
-    const activeOffers = data.offers.filter(offer => offer.is_active);
     return (
         <div className="mx-auto w-full max-w-[1120px] text-slate-900">
             <Link to="/" className="text-sm font-medium text-blue-700 hover:underline">← Voltar ao catálogo</Link>
@@ -76,6 +84,13 @@ export function BuyerApiProductDetails() {
                     <ul className="mt-3 grid gap-3">
                         {activeOffers.map(offer => (
                             <li key={offer.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                <OfferComparisonSelector
+                                    offer={offer}
+                                    selected={selectedOfferIds.includes(offer.id)}
+                                    selectedCount={selectedOffers.length}
+                                    activeOfferCount={activeOffers.length}
+                                    onChange={selected => toggleOffer(offer.id, selected)}
+                                />
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <h3 className="font-semibold">{offer.supplier_name}</h3>
@@ -89,6 +104,17 @@ export function BuyerApiProductDetails() {
                             </li>
                         ))}
                     </ul>
+                )}
+                {activeOffers.length === 1 && (
+                    <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        Há apenas uma oferta ativa. A comparação fica disponível quando houver pelo menos duas.
+                    </p>
+                )}
+                {activeOffers.length >= 2 && (
+                    <>
+                        <OfferComparisonStatus selectedCount={selectedOffers.length} />
+                        <OfferComparisonPanel offers={selectedOffers} />
+                    </>
                 )}
             </section>
         </div>
