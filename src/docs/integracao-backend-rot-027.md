@@ -84,6 +84,12 @@ fornecedor não cadastra produtos canônicos nem aprova depósitos.
   depósitos, mas a interface não oferece a revisão administrativa exigida para
   confirmar as coordenadas. Um depósito pendente não pode ser usado em uma
   oferta até que um administrador o aprove por outro meio.
+- O formulário do fornecedor coleta CEP, número, via, bairro, município, UF,
+  região de atendimento e horário. Para manter compatibilidade com o contrato
+  atual, os componentes do endereço são combinados no campo `address`; região e
+  horário continuam sendo enviados nos campos existentes. As opções de região
+  não representam limites geográficos validados, e o formulário não salva nem
+  confirma coordenadas.
 - **Capacidade logística:** o comprador consulta janelas, mas o Frontend não
   cria nem ajusta janelas. O checkout depende de capacidade previamente
   cadastrada no Backend.

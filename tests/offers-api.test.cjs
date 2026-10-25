@@ -54,14 +54,18 @@ const offer={id:'offer',supplier_organization_id:'org',is_active:true,version:7}
     const paginated=new OffersRepository('org',async()=>{pageCalls++;return {items:pageCalls===1?Array.from({length:100},(_,i)=>({...warehouse,id:String(i)})):[{...warehouse,id:'last'}],total:101,page:pageCalls,page_size:100};});
     assert.equal((await paginated.warehouses()).length,101);assert.equal(pageCalls,2);
     const {warehouseValues,warehouseError}=load('src/features/products/api/offersRepository.ts',{'../../services/apiAuth.service':{},'../../../shared/api/http':http});
-    const input={name:' Central ',address:' Rua A, 10 ',opening_hours:' 08h-18h ',region:' Manaus '};
+    const input={name:' Central ',postalCode:'12345-678',number:'10',street:' Rua A ',district:' Centro ',municipality:' Manaus ',state:'am',opening_hours:' 08h-18h ',region:'Centro'};
     const clean=JSON.parse(JSON.stringify(warehouseValues(input)));
-    assert.deepEqual(clean,{name:'Central',address:'Rua A, 10',opening_hours:'08h-18h',region:'Manaus'});
-    for(const [key,min,max] of [['name',1,200],['address',5,500],['opening_hours',1,200],['region',1,100]]) {
-        assert.throws(()=>warehouseValues({...clean,[key]:' '.repeat(min)}));
-        assert.throws(()=>warehouseValues({...clean,[key]:'a'.repeat(max+1)}));
-        assert.equal(warehouseValues({...clean,[key]:'a'.repeat(max)})[key].length,max);
+    assert.deepEqual(clean,{name:'Central',address:'CEP 12345-678, Rua A, nº 10, Centro, Manaus/AM',opening_hours:'08h-18h',region:'Centro'});
+    for(const [key,min,max] of [['name',1,200],['number',1,20],['street',2,200],['district',2,120],['municipality',2,120],['opening_hours',1,200]]) {
+        assert.throws(()=>warehouseValues({...input,[key]:' '.repeat(min)}));
+        assert.throws(()=>warehouseValues({...input,[key]:'a'.repeat(max+1)}));
     }
+    for(const invalid of [
+        {...input,postalCode:'1234'},
+        {...input,state:'A'},
+        {...input,region:'Manaus'},
+    ]) assert.throws(()=>warehouseValues(invalid));
     let warehouseCalls=0,release;
     const warehouseRepo=new OffersRepository('authenticated-org',async(path,options,replayUnauthorized)=>{
         warehouseCalls++;
@@ -72,8 +76,8 @@ const offer={id:'offer',supplier_organization_id:'org',is_active:true,version:7}
         await new Promise(resolve=>{release=resolve;});
         return {...warehouse,id:'new',supplier_organization_id:'authenticated-org',geocoding_state:'PENDING'};
     });
-    const creation=warehouseRepo.createWarehouse(input);
-    await assert.rejects(warehouseRepo.createWarehouse(input),/andamento/);
+    const creation=warehouseRepo.createWarehouse(clean);
+    await assert.rejects(warehouseRepo.createWarehouse(clean),/andamento/);
     release();
     const created=await creation;
     assert.equal(created.geocoding_state,'PENDING');assert.equal(warehouseCalls,1);

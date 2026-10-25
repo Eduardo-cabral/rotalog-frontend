@@ -57,9 +57,14 @@ async function fillWarehouse(page:Page) {
     await page.getByRole('button',{name:'Cadastrar depósito',exact:true}).click();
     const dialog=page.getByRole('dialog');
     await dialog.getByLabel('Nome do depósito',{exact:true}).fill('Depósito Norte');
-    await dialog.getByLabel('Endereço completo',{exact:true}).fill('Rua Norte, 42');
+    await dialog.getByLabel('CEP',{exact:true}).fill('69000-000');
+    await dialog.getByLabel('Número',{exact:true}).fill('42');
+    await dialog.getByLabel('Rua ou avenida',{exact:true}).fill('Rua Norte');
+    await dialog.getByLabel('Bairro',{exact:true}).fill('Centro');
+    await dialog.getByLabel('Município',{exact:true}).fill('Manaus');
+    await dialog.getByLabel('UF',{exact:true}).fill('AM');
     await dialog.getByLabel('Horário de funcionamento',{exact:true}).fill('08h às 18h');
-    await dialog.getByLabel('Região',{exact:true}).fill('Manaus');
+    await dialog.getByRole('radio',{name:'Zona Norte',exact:true}).check();
     return dialog;
 }
 test('abas preservam pesquisa, permitem teclado e abrem oferta para produto do catálogo',async({page})=>{
@@ -143,7 +148,7 @@ test('cadastro atualiza depósitos e mantém pendentes fora das ofertas',async({
     await expect(page.getByText('Depósito cadastrado. Ele poderá receber ofertas após a confirmação do endereço.',{exact:true})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Depósito Norte'})).toBeVisible();
     expect(state.posts).toHaveLength(1);
-    expect(state.posts[0]).toEqual({path:`/api/v1/suppliers/${org}/warehouses`,body:{name:'Depósito Norte',address:'Rua Norte, 42',opening_hours:'08h às 18h',region:'Manaus'}});
+    expect(state.posts[0]).toEqual({path:`/api/v1/suppliers/${org}/warehouses`,body:{name:'Depósito Norte',address:'CEP 69000-000, Rua Norte, nº 42, Centro, Manaus/AM',opening_hours:'08h às 18h',region:'Zona Norte'}});
     await page.getByRole('tab',{name:'Minhas ofertas',exact:true}).click();
     await page.getByRole('button',{name:'Criar oferta para produto existente',exact:true}).click();
     await expect(page.getByRole('dialog').getByLabel('Depósito elegível')).not.toContainText('Depósito Norte');
@@ -154,11 +159,11 @@ test('cadastro valida campos e permite corrigir erro de validação da API',asyn
     const dialog=await fillWarehouse(page);
     await dialog.getByLabel('Nome do depósito',{exact:true}).fill('   ');
     await dialog.getByRole('button',{name:'Confirmar cadastro',exact:true}).click();
-    await expect(dialog.getByRole('alert')).toContainText('Nome deve conter');expect(state.posts).toHaveLength(0);
+    await expect(dialog.getByRole('alert')).toContainText('Nome do depósito deve conter');expect(state.posts).toHaveLength(0);
     await dialog.getByLabel('Nome do depósito',{exact:true}).fill('Depósito Norte');
     await dialog.getByRole('button',{name:'Confirmar cadastro',exact:true}).click();
     await expect(dialog.getByRole('alert')).toContainText('Dados inválidos');
-    await expect(dialog.getByLabel('Endereço completo',{exact:true})).toHaveValue('Rua Norte, 42');
+    await expect(dialog.getByLabel('Município',{exact:true})).toHaveValue('Manaus');
     state.conflict=false;
     await dialog.getByRole('button',{name:'Confirmar cadastro',exact:true}).click();
     await expect(dialog).not.toBeVisible();expect(state.posts).toHaveLength(2);

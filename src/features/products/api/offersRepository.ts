@@ -9,13 +9,49 @@ export type Warehouse = {
     version: number; demo_run_id: string; is_synthetic: true;
 };
 export type WarehouseCreate = Pick<Warehouse, "name" | "address" | "opening_hours" | "region">;
-export function warehouseValues(input: WarehouseCreate): WarehouseCreate {
-    const result = {name: input.name.trim(), address: input.address.trim(), opening_hours: input.opening_hours.trim(), region: input.region.trim()};
-    for (const [key, label, min, max] of [["name", "Nome", 1, 200], ["address", "Endereço", 5, 500], ["opening_hours", "Horário de funcionamento", 1, 200], ["region", "Região", 1, 100]] as const) {
+export type WarehouseFormValues = {
+    name: string;
+    postalCode: string;
+    number: string;
+    street: string;
+    district: string;
+    municipality: string;
+    state: string;
+    opening_hours: string;
+    region: string;
+};
+export const warehouseServiceRegions = ["Zona Norte", "Zona Sul", "Zona Leste", "Zona Oeste", "Centro"] as const;
+export function warehouseValues(input: WarehouseFormValues): WarehouseCreate {
+    const result = {
+        name: input.name.trim(),
+        postalCode: input.postalCode.replace(/\D/g, ""),
+        number: input.number.trim(),
+        street: input.street.trim(),
+        district: input.district.trim(),
+        municipality: input.municipality.trim(),
+        state: input.state.trim().toLocaleUpperCase("pt-BR"),
+        opening_hours: input.opening_hours.trim(),
+        region: input.region.trim(),
+    };
+    const required = [
+        ["name", "Nome do depósito", 1, 200],
+        ["number", "Número", 1, 20],
+        ["street", "Rua ou avenida", 2, 200],
+        ["district", "Bairro", 2, 120],
+        ["municipality", "Município", 2, 120],
+        ["opening_hours", "Horário de funcionamento", 1, 200],
+    ] as const;
+    for (const [key, label, min, max] of required) {
         const length = Array.from(result[key]).length;
         if (length < min || length > max) throw new Error(`${label} deve conter entre ${min} e ${max} caracteres.`);
     }
-    return result;
+    if (!/^\d{8}$/.test(result.postalCode)) throw new Error("Informe um CEP válido com 8 dígitos.");
+    if (!/^[A-Z]{2}$/.test(result.state)) throw new Error("Informe a UF com 2 letras.");
+    if (!(warehouseServiceRegions as readonly string[]).includes(result.region)) throw new Error("Selecione uma região de atendimento.");
+    const postalCode = `${result.postalCode.slice(0, 5)}-${result.postalCode.slice(5)}`;
+    const address = `CEP ${postalCode}, ${result.street}, nº ${result.number}, ${result.district}, ${result.municipality}/${result.state}`;
+    if (Array.from(address).length > 500) throw new Error("O endereço completo deve conter no máximo 500 caracteres.");
+    return {name: result.name, address, opening_hours: result.opening_hours, region: result.region};
 }
 export function warehouseError(error: unknown): string {
     if (error instanceof ApiError) {
@@ -97,7 +133,7 @@ export class OffersRepository {
     warehouseNeedsReview() {return this.uncertainWarehouse;}
     acknowledgeWarehouseReview() {this.uncertainWarehouse = false;}
     async createWarehouse(input: WarehouseCreate): Promise<Warehouse> {
-        const body = warehouseValues(input);
+        const body = input;
         const options = this.options();
         if (this.pending) throw new Error("Já existe uma operação em andamento.");
         if (this.uncertainWarehouse) throw new Error("Confira os depósitos antes de iniciar outro cadastro.");
