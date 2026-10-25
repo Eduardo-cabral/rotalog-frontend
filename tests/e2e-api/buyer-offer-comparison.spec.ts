@@ -113,10 +113,12 @@ for (const width of [375, 1280]) {
         await setup(page);
         await page.goto("/produto/product-1");
 
-        await expect(page.getByRole("heading", { name: "Ofertas dos fornecedores" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Ofertas disponíveis" })).toBeVisible();
         await page.getByRole("checkbox", { name: /Fornecedor Norte/ }).check();
         await page.getByRole("checkbox", { name: /Fornecedor Sul/ }).check();
         await expect(page.getByRole("heading", { name: "Comparação de ofertas" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Adicionar ao carrinho", exact: true })).toHaveCount(2);
+        await expect(page.getByRole("button", { name: "Adicionar ao carrinho", exact: true }).first()).toBeDisabled();
         await expect(page.getByText("Menor preço unitário")).toBeVisible();
         await expect(page.getByText("Quantidade mínima").last()).toBeVisible();
         const cards = page.getByRole("region", { name: "Comparação de ofertas" }).locator("article");

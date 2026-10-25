@@ -12,6 +12,12 @@ import { BuyerRepository, buyerError, creationRejected, money, validateCart, typ
 import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../components/BuyerVisuals";
 import { ProductCategoryFilter } from "../../../shared/components/ProductCategoryFilter";
 import { ProductImage } from "../../../shared/components/ProductImage";
+import {
+    OfferComparisonPanel,
+    OfferComparisonSelector,
+    OfferComparisonStatus,
+} from "./BuyerOfferComparison";
+import { useOfferComparison } from "./useBuyerOfferComparison";
 
 const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
 const secondaryButton = "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
@@ -201,12 +207,64 @@ export function ApiBuyerProductDetails() {
     const {user}=useAuth();
     const repository=useRepository();
     const result=useRead(async()=>({product:await new CatalogRepository(user!.organization_id!).detail(productId),offers:await repository.offers(productId)}),[repository,productId]);
-    return <div><Link className={`${secondaryButton} mb-5`} to="/"><BuyerIcon name="arrow-left" className="h-4 w-4"/>Voltar ao catálogo</Link><div><Result {...result}>{result.value&&<><ProductInformation product={result.value.product}/><div className="my-5 flex flex-wrap items-end justify-between gap-2"><div><h2 className="text-xl font-bold text-blue-950">Ofertas disponíveis</h2><p className="mt-1 text-sm text-slate-500">Preço por unidade comercial e quantidade informados pelo fornecedor.</p></div></div><div className="grid gap-4 lg:grid-cols-2">{result.value.offers.filter(offer=>offer.is_active).map(offer=><OfferCard key={offer.id} offer={offer} packagingType={result.value!.product.packaging_type}/>)}</div>{!result.value.offers.length&&<BuyerEmptyState icon="store" title="Nenhuma oferta disponível"><p>Este produto ainda não possui ofertas ativas.</p></BuyerEmptyState>}</>}</Result></div></div>;
+    const {activeOffers,selectedOfferIds,selectedOffers,toggleOffer}=useOfferComparison(result.value?.offers??[],productId??"");
+    return <div>
+        <Link className={`${secondaryButton} mb-5`} to="/"><BuyerIcon name="arrow-left" className="h-4 w-4"/>Voltar ao catálogo</Link>
+        <div>
+            <Result {...result}>
+                {result.value&&<>
+                    <ProductInformation product={result.value.product}/>
+                    <section className="mt-5" aria-labelledby="buyer-product-offers-title">
+                        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                            <div>
+                                <h2 id="buyer-product-offers-title" className="text-xl font-bold text-blue-950">Ofertas disponíveis</h2>
+                                <p className="mt-1 text-sm text-slate-500">Preço por unidade comercial e quantidade informados pelo fornecedor.</p>
+                            </div>
+                        </div>
+                        {activeOffers.length ? <>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                {activeOffers.map(offer=><OfferCard
+                                    key={offer.id}
+                                    offer={offer}
+                                    packagingType={result.value!.product.packaging_type}
+                                    selected={selectedOfferIds.includes(offer.id)}
+                                    selectedCount={selectedOffers.length}
+                                    activeOfferCount={activeOffers.length}
+                                    onCompare={selected=>toggleOffer(offer.id,selected)}
+                                />)}
+                            </div>
+                            {activeOffers.length === 1 && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                Há apenas uma oferta ativa. A comparação fica disponível quando houver pelo menos duas.
+                            </p>}
+                            {activeOffers.length >= 2 && <>
+                                <OfferComparisonStatus selectedCount={selectedOffers.length}/>
+                                <OfferComparisonPanel offers={selectedOffers}/>
+                            </>}
+                        </> : <BuyerEmptyState icon="store" title="Nenhuma oferta disponível"><p>Este produto ainda não possui ofertas ativas.</p></BuyerEmptyState>}
+                    </section>
+                </>}
+            </Result>
+        </div>
+    </div>;
 }
 function ProductInformation({product}:{product:CatalogProduct}) {
     return <section className={`${card} grid gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center`}><ProductImage name={product.name} className="h-40 w-full sm:h-44"/><div><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{product.brand || "Produto"}</p><h1 className="mt-2 text-2xl font-bold text-blue-950">{product.name}</h1><p className="mt-2 text-sm text-slate-600">{product.packaging_type} · {product.packaging_quantity} unidades</p><details className="mt-4"><summary className="cursor-pointer text-sm font-semibold text-blue-700">Detalhes do produto</summary><dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{Object.entries({"Conteúdo":`${product.net_content} ${product.net_content_unit}`,"GTIN":product.gtin??"Não informado","Peso bruto":`${product.gross_weight_grams} g`,"Volume":`${product.volume_cm3} cm³`,...product.variant_attributes}).map(([key,value])=><div key={key}><dt className="font-semibold">{key}</dt><dd className="text-slate-600">{String(value)}</dd></div>)}</dl></details></div></section>;
 }
-function OfferCard({offer,packagingType}:{offer:Offer;packagingType:string}) {
+function OfferCard({
+    offer,
+    packagingType,
+    selected,
+    selectedCount,
+    activeOfferCount,
+    onCompare,
+}:{
+    offer:Offer;
+    packagingType:string;
+    selected:boolean;
+    selectedCount:number;
+    activeOfferCount:number;
+    onCompare:(selected:boolean)=>void;
+}) {
     const {user}=useAuth();
     const cart=useBuyer();
     const [quantity,setQuantity]=useState(offer.minimum_order_quantity);
@@ -218,7 +276,17 @@ function OfferCard({offer,packagingType}:{offer:Offer;packagingType:string}) {
         try{cart.add(offer,quantity,replaceOrigin);setMessage("Oferta adicionada ao carrinho.");setError("");setReplace(false);}catch(reason){setError(buyerError(reason));}
     }
     const available = offer.available_quantity >= offer.minimum_order_quantity;
-    return <article className={`${card} flex flex-col`}><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BuyerIcon name="store" className="h-5 w-5"/></span><div><p className="text-xs font-medium text-slate-500">Fornecedor</p><h3 className="font-bold text-slate-900">{offer.supplier_name}</h3></div></div><BuyerStatus tone={available?"success":"warning"} icon={available?"check":"clock"}>{available?"Disponível":"Indisponível"}</BuyerStatus></div><p className="mt-5 text-2xl font-bold text-blue-900">{money(offer.unit_price)}<span className="ml-1 text-xs font-medium text-slate-500">por unidade comercial ({packagingType.toLocaleLowerCase("pt-BR")})</span></p><p className="mt-2 text-sm text-slate-600">Mínimo {offer.minimum_order_quantity} · Disponível na consulta: {offer.available_quantity}</p><label className="my-4 flex items-center gap-3 text-sm font-semibold">Quantidade<input aria-label={`Quantidade de ${offer.product_name} em ${offer.supplier_name}`} className="w-24 rounded-lg border border-slate-300 px-3 py-2.5" type="number" min={offer.minimum_order_quantity} max={offer.available_quantity} value={quantity} onChange={event=>setQuantity(Number(event.target.value))}/></label><button className={`${button} mt-auto`} disabled={!buyerAuthorized(user!,"checkout:create")||!!cart.attempt||!available} onClick={()=>{setMessage("");if(other)setReplace(true);else add();}}>Adicionar ao carrinho<BuyerIcon name="cart" className="h-4 w-4"/></button>{replace&&<div role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-sm text-amber-950">Esta oferta é de outro fornecedor ou depósito. Substituir os itens atuais?</p><button className={`${button} mt-3`} onClick={()=>add(true)}>Substituir carrinho</button><button className={`${secondaryButton} mt-2 w-full`} onClick={()=>setReplace(false)}>Manter itens</button></div>}{message&&<p role="status" className="mt-3 text-sm text-emerald-800">{message} <Link className="font-semibold text-blue-700 underline" to="/comprador/carrinho">Ver carrinho</Link></p>}{error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}</article>;
+    return <article className={`${card} flex min-w-0 flex-col`}>
+        <OfferComparisonSelector offer={offer} selected={selected} selectedCount={selectedCount} activeOfferCount={activeOfferCount} onChange={onCompare}/>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BuyerIcon name="store" className="h-5 w-5"/></span><div><p className="text-xs font-medium text-slate-500">Fornecedor</p><h3 className="font-bold text-slate-900">{offer.supplier_name}</h3></div></div><BuyerStatus tone={available?"success":"warning"} icon={available?"check":"clock"}>{available?"Disponível":"Indisponível"}</BuyerStatus></div>
+        <p className="mt-5 text-2xl font-bold text-blue-900">{money(offer.unit_price)}<span className="ml-1 text-xs font-medium text-slate-500">por unidade comercial ({packagingType.toLocaleLowerCase("pt-BR")})</span></p>
+        <p className="mt-2 text-sm text-slate-600">Mínimo {offer.minimum_order_quantity} · Disponível na consulta: {offer.available_quantity}</p>
+        <label className="my-4 flex items-center gap-3 text-sm font-semibold">Quantidade<input aria-label={`Quantidade de ${offer.product_name} em ${offer.supplier_name}`} className="w-24 rounded-lg border border-slate-300 px-3 py-2.5" type="number" min={offer.minimum_order_quantity} max={offer.available_quantity} value={quantity} onChange={event=>setQuantity(Number(event.target.value))}/></label>
+        <button className={`${button} mt-auto`} disabled={!buyerAuthorized(user!,"checkout:create")||!!cart.attempt||!available} onClick={()=>{setMessage("");if(other)setReplace(true);else add();}}>Adicionar ao carrinho<BuyerIcon name="cart" className="h-4 w-4"/></button>
+        {replace&&<div role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-sm text-amber-950">Esta oferta é de outro fornecedor ou depósito. Substituir os itens atuais?</p><button className={`${button} mt-3`} onClick={()=>add(true)}>Substituir carrinho</button><button className={`${secondaryButton} mt-2 w-full`} onClick={()=>setReplace(false)}>Manter itens</button></div>}
+        {message&&<p role="status" className="mt-3 text-sm text-emerald-800">{message} <Link className="font-semibold text-blue-700 underline" to="/comprador/carrinho">Ver carrinho</Link></p>}
+        {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+    </article>;
 }
 
 export function ApiBuyerCart() {
