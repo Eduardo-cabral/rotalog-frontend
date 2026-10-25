@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../../cart/hooks/useCart";
+import { authMode } from "../../../shared/api/config";
+import { DemoDataBadge } from "../../buyer/components/DemoDataBadge";
 
 import {
     catalogProducts,
@@ -81,6 +83,8 @@ export function ProductDetails() {
                     {product.name}
                 </span>
             </nav>
+
+            <div className="mb-5"><DemoDataBadge visible={authMode === "mock"}/></div>
 
             <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 {/* Imagem do produto */}

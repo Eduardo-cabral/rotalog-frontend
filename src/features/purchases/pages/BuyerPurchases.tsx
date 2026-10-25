@@ -6,6 +6,7 @@ import {
     type SupplierOrderStatus,
 } from "../mocks/purchases.mock";
 import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../../buyer/components/BuyerVisuals";
+import { DemoDataBadge } from "../../buyer/components/DemoDataBadge";
 
 function purchaseStatus(status: Purchase["status"]) {
     if (status === "COMPLETED") return { label: "Concluída", tone: "success" as const, icon: "check" as const };
@@ -28,6 +29,7 @@ export function BuyerPurchases() {
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Portal do comprador</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Minhas compras</h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600">Consulte o valor e o andamento dos pedidos de cada fornecedor.</p>
+                {purchasesMock.length > 0 && <div className="mt-3"><DemoDataBadge visible /></div>}
             </header>
 
             {purchasesMock.length ? (

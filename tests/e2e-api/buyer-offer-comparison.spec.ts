@@ -69,7 +69,16 @@ const offers = [
     },
 ] as const;
 
-async function setup(page: Page) {
+type MarkerMode = "synthetic" | "real" | "unknown";
+
+function withMarker<T extends Record<string, unknown>>(record: T, mode: MarkerMode) {
+    if (mode === "synthetic") return { ...record, is_synthetic: true, demo_run_id: "demo-run" };
+    if (mode === "real") return { ...record, is_synthetic: false, demo_run_id: undefined };
+    const { is_synthetic: _isSynthetic, demo_run_id: _demoRunId, ...unmarked } = record;
+    return unmarked;
+}
+
+async function setup(page: Page, markerMode: MarkerMode = "synthetic") {
     await page.addInitScript(() => sessionStorage.setItem("rotalog:api-csrf", "csrf"));
     await page.route("http://localhost:8000/api/v1/**", async route => {
         const request = route.request();
@@ -96,11 +105,25 @@ async function setup(page: Page) {
         expect(request.method()).toBe("GET");
         expect(request.headers()["x-organization-id"]).toBe(organization);
 
-        if (path === "/api/v1/products/product-1") return route.fulfill({ json: product });
-        if (path === "/api/v1/offers") {
-            expect(url.searchParams.get("product_id")).toBe("product-1");
+        if (path === "/api/v1/products") {
             return route.fulfill({
-                json: { items: offers, total: offers.length, page: 1, page_size: 25 },
+                json: { items: [withMarker(product, markerMode)], total: 1, page: 1, page_size: 25 },
+            });
+        }
+        if (path === "/api/v1/products/product-1") {
+            return route.fulfill({ json: withMarker(product, markerMode) });
+        }
+        if (path === "/api/v1/offers") {
+            if (url.searchParams.has("product_id")) {
+                expect(url.searchParams.get("product_id")).toBe("product-1");
+            }
+            return route.fulfill({
+                json: {
+                    items: offers.map(offer => withMarker(offer, markerMode)),
+                    total: offers.length,
+                    page: 1,
+                    page_size: 25,
+                },
             });
         }
         return route.fulfill({ status: 404, json: { error: { code: "NOT_FOUND" } } });
@@ -111,8 +134,12 @@ for (const width of [375, 1280]) {
     test(`comparação de duas ofertas sem overflow em ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await setup(page);
+        await page.goto("/");
+        await expect(page.getByRole("note")).toHaveText("Dados de demonstração");
+        await expect(page.getByRole("heading", { name: "Catálogo de produtos" })).toBeVisible();
         await page.goto("/produto/product-1");
 
+        await expect(page.getByRole("note")).toHaveText("Dados de demonstração");
         await expect(page.getByRole("heading", { name: "Ofertas disponíveis" })).toBeVisible();
         await page.getByRole("checkbox", { name: /Fornecedor Norte/ }).check();
         await page.getByRole("checkbox", { name: /Fornecedor Sul/ }).check();
@@ -135,5 +162,23 @@ for (const width of [375, 1280]) {
             }
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        const badge = await page.getByRole("note").boundingBox();
+        expect(badge).not.toBeNull();
+        if (badge) {
+            expect(badge.x).toBeGreaterThanOrEqual(0);
+            expect(badge.x + badge.width).toBeLessThanOrEqual(width);
+        }
+    });
+}
+
+for (const markerMode of ["real", "unknown"] as const) {
+    test(`selo ausente quando os dados são ${markerMode === "real" ? "reais" : "não identificados"}`, async ({ page }) => {
+        await setup(page, markerMode);
+        await page.goto("/");
+        await expect(page.getByRole("heading", { name: "Catálogo de produtos" })).toBeVisible();
+        await expect(page.getByRole("note")).toHaveCount(0);
+        await page.goto("/produto/product-1");
+        await expect(page.getByRole("heading", { name: "Ofertas disponíveis" })).toBeVisible();
+        await expect(page.getByRole("note")).toHaveCount(0);
     });
 }

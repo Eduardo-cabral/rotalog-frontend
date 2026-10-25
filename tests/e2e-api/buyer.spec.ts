@@ -3,9 +3,9 @@ import AxeBuilder from '@axe-core/playwright';
 
 const organization='buyer-org';
 const product={id:'official-product',name:'Arroz oficial',brand:'Marca oficial',category:'ALIMENTO_SECO_INDUSTRIALIZADO',gtin:null,net_content:1000,net_content_unit:'g',packaging_type:'Fardo',packaging_quantity:6,gross_weight_grams:6200,volume_cm3:1000,variant_attributes:{},publication_state:'PUBLISHED',version:1,demo_run_id:'demo',is_synthetic:true};
-const offer={id:'offer-one',product_id:product.id,product_name:product.name,supplier_organization_id:'supplier-org',supplier_name:'Distribuidora oficial',warehouse_id:'warehouse',unit_price:'149.90',currency:'BRL',minimum_order_quantity:2,available_quantity:20,version:1,is_active:true};
+const offer={id:'offer-one',product_id:product.id,product_name:product.name,supplier_organization_id:'supplier-org',supplier_name:'Distribuidora oficial',warehouse_id:'warehouse',unit_price:'149.90',currency:'BRL',minimum_order_quantity:2,available_quantity:20,version:1,is_active:true,demo_run_id:'demo',is_synthetic:true};
 const slot={id:'slot',warehouse_id:'warehouse',starts_at:'2026-01-01T00:00:00Z',ends_at:'2099-01-01T00:00:00Z',total_quantity:100,reserved_quantity:0};
-const order={id:'supplier-order',purchase_id:'purchase',buyer_organization_id:organization,supplier_organization_id:'supplier-org',warehouse_id:'warehouse',state:'AWAITING_SUPPLIER_DECISION',total:'299.80',items:[{id:'item',offer_id:offer.id,product,unit_price:'149.90',requested_quantity:2,supplier_accepted_quantity:0,separated_quantity:0,dispatched_quantity:0,delivered_quantity:0}],fulfillments:[],allowed_actions:[],version:1};
+const order={id:'supplier-order',purchase_id:'purchase',buyer_organization_id:organization,supplier_organization_id:'supplier-org',warehouse_id:'warehouse',state:'AWAITING_SUPPLIER_DECISION',total:'299.80',items:[{id:'item',offer_id:offer.id,product,unit_price:'149.90',requested_quantity:2,supplier_accepted_quantity:0,separated_quantity:0,dispatched_quantity:0,delivered_quantity:0}],fulfillments:[],allowed_actions:[],version:1,is_synthetic:true};
 async function setup(page:Page,restore=true) {
     const state={role:'BUYER_ADMIN' as 'BUYER_ADMIN'|'SUPPLIER_OPERATOR',capabilities:['catalog:read','checkout:create','purchase:read'],org:organization,products:[product],offers:[offer],orderStates:['AWAITING_SUPPLIER_DECISION'],delayOffers:0,network:false,createFail:0,createStatus:0,payFail:0,payStatus:0,purchaseStatus:0,purchaseGets:0,purchaseState:'ACTIVE',purchaseFailNext:false,purchaseDelay:0,purchaseInFlight:0,maxPurchaseInFlight:0,emptyPurchases:false,foreign:false,created:[] as {key:string;body:unknown}[],payments:[] as {key:string;body:unknown}[],confirmed:false,checkoutVersion:1,expired:false,unknown:[] as string[]};
     if(restore)await page.addInitScript(()=>sessionStorage.setItem('rotalog:api-csrf','test-csrf'));
@@ -60,16 +60,20 @@ test('router API preserva catálogo, detalhes do produto, lista e detalhes de co
     const state=await setup(page);
     await page.goto('/');
     await expect(page.getByRole('heading',{name:'Catálogo de produtos',exact:true})).toBeVisible();
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await page.getByRole('link',{name:'Ver produto',exact:true}).click();
     await expect(page.getByRole('heading',{name:product.name,exact:true})).toBeVisible();
     await expect(page.getByRole('heading',{name:'Ofertas disponíveis',exact:true})).toBeVisible();
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
 
     await page.goto('/comprador/compras');
     await expect(page.getByRole('heading',{name:'Minhas compras',exact:true})).toBeVisible();
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await page.getByRole('link',{name:'Ver detalhes',exact:true}).click();
     await expect(page).toHaveURL(/\/comprador\/compras\/purchase$/);
     await expect(page.getByRole('heading',{name:'Compra #PURCHASE',exact:true})).toBeVisible();
     await expect(page.getByRole('heading',{name:product.name,exact:true})).toBeVisible();
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     expect(state.unknown).toEqual([]);
 });
 async function add(page:Page) {
@@ -90,11 +94,13 @@ test('jornada do comprador via router com respostas API interceptadas',async({pa
     await page.getByRole('button',{name:'Entrar',exact:true}).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading',{name:product.name,exact:true})).toBeVisible();
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await expect(page.getByLabel('Categoria nesta página')).toHaveCount(0);
     await expect(page.getByRole('img',{name:`Imagem de ${product.name} não disponível`})).toBeVisible();
     await expect(page.getByText('R$ 149,90',{exact:true}).first()).toBeVisible();
     await expect(page.getByText('Oferta de Distribuidora oficial',{exact:true})).toBeVisible();
     await add(page);await reserve(page);
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await expect(page.getByText('por unidade comercial da oferta',{exact:true})).toBeVisible();
     await expect(page.getByText('Total oficial:',{exact:true}).locator('..')).toContainText('R$ 299,80');
     await expect(page.getByText('Os preços abaixo são por unidade comercial, conforme cada oferta confirmada.',{exact:true})).toBeVisible();
@@ -102,6 +108,7 @@ test('jornada do comprador via router com respostas API interceptadas',async({pa
     expect(state.created[0].body).toEqual({items:[{offer_id:offer.id,quantity:2}],capacity_slot_id:'slot',accepts_partial:false});
     await page.getByRole('button',{name:'Confirmar pagamento'}).click();
     await expect(page).toHaveURL(/comprador\/compras\/purchase$/);
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await expect(page.getByText('Aguardando', {exact:false}).first()).toBeVisible();
     expect(state.payments).toHaveLength(1);
     expect(state.payments[0].body).toEqual({expected_version:1});
@@ -110,6 +117,7 @@ test('jornada do comprador via router com respostas API interceptadas',async({pa
     await expect(page.getByText('purchase', {exact:true})).toHaveCount(0);
     await expect(page.getByText('supplier-order', {exact:true})).toHaveCount(0);
     await page.goto('/comprador/compras');
+    await expect(page.getByRole('note')).toHaveText('Dados de demonstração');
     await expect(page.getByRole('link',{name:/Ver detalhes/}).first()).toBeVisible();
     expect(state.unknown).toEqual([]);
 });

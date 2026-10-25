@@ -6,6 +6,7 @@ import {
     type SupplierOrderStatus,
 } from "../mocks/purchases.mock";
 import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../../buyer/components/BuyerVisuals";
+import { DemoDataBadge } from "../../buyer/components/DemoDataBadge";
 
 const currency = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -73,6 +74,7 @@ export function BuyerPurchaseDetails() {
 
                 <header className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                     <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Resumo da compra</p>
+                    <div className="mt-3"><DemoDataBadge visible /></div>
 
                     <h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">
                         Detalhes da compra #{purchase.id}

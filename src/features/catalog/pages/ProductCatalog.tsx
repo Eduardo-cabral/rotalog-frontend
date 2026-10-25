@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { catalogProducts, formatPrice } from "../mocks/products.mock";
 import { BuyerEmptyState, BuyerIcon, BuyerProductPlaceholder, BuyerStatus } from "../../buyer/components/BuyerVisuals";
+import { authMode } from "../../../shared/api/config";
+import { DemoDataBadge } from "../../buyer/components/DemoDataBadge";
 
 type MarketplaceContext = {
     search: string;
@@ -50,6 +52,7 @@ export function ProductCatalog() {
                         Encontre produtos, conheça fornecedores e organize
                         suas compras de forma simples.
                     </p>
+                    <div className="mt-4"><DemoDataBadge visible={authMode === "mock" && filteredProducts.length > 0}/></div>
 
                     <a
                         href="#produtos"

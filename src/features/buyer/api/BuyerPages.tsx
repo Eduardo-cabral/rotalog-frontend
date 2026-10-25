@@ -12,6 +12,9 @@ import { BuyerRepository, buyerError, creationRejected, money, validateCart, typ
 import { BuyerEmptyState, BuyerIcon, BuyerStatus } from "../components/BuyerVisuals";
 import { ProductCategoryFilter } from "../../../shared/components/ProductCategoryFilter";
 import { ProductImage } from "../../../shared/components/ProductImage";
+import { authMode } from "../../../shared/api/config";
+import { DemoDataBadge } from "../components/DemoDataBadge";
+import { areSyntheticRecords, isSyntheticRecord } from "../components/demoData";
 import {
     OfferComparisonPanel,
     OfferComparisonSelector,
@@ -158,6 +161,11 @@ function CatalogContent() {
     const categories = catalogCategories(publishedProducts);
     const activeCategory = categories.includes(category) ? category : "";
     const visibleProducts = publishedProducts.filter(product => !activeCategory || product.category === activeCategory);
+    const demoDataVisible = authMode === "mock"
+        ? visibleProducts.length > 0
+        : visibleProducts.length > 0 &&
+            areSyntheticRecords(visibleProducts) &&
+            (result.value?.offers.length === 0 || areSyntheticRecords(result.value?.offers ?? []));
     return <div>
         <header className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-[#102957] via-blue-900 to-blue-700 px-5 py-6 text-white sm:px-8 sm:py-8">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-200">Marketplace RotaLog</p>
@@ -167,6 +175,7 @@ function CatalogContent() {
                 <BuyerIcon name="search" className="h-5 w-5 shrink-0 text-blue-100"/>
                 <span className="min-w-0 text-sm text-blue-50">Use a busca no topo para encontrar produtos e fornecedores.</span>
             </div>
+            <div className="mt-4"><DemoDataBadge visible={demoDataVisible}/></div>
         </header>
         <Result {...result}>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -208,8 +217,15 @@ export function ApiBuyerProductDetails() {
     const repository=useRepository();
     const result=useRead(async()=>({product:await new CatalogRepository(user!.organization_id!).detail(productId),offers:await repository.offers(productId)}),[repository,productId]);
     const {activeOffers,selectedOfferIds,selectedOffers,toggleOffer}=useOfferComparison(result.value?.offers??[],productId??"");
+    const demoDataVisible = authMode === "api" &&
+        !!result.value &&
+            isSyntheticRecord(result.value.product) &&
+            (activeOffers.length === 0 || areSyntheticRecords(activeOffers));
     return <div>
-        <Link className={`${secondaryButton} mb-5`} to="/"><BuyerIcon name="arrow-left" className="h-4 w-4"/>Voltar ao catálogo</Link>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <Link className={secondaryButton} to="/"><BuyerIcon name="arrow-left" className="h-4 w-4"/>Voltar ao catálogo</Link>
+            <DemoDataBadge visible={demoDataVisible}/>
+        </div>
         <div>
             <Result {...result}>
                 {result.value&&<>
@@ -360,6 +376,9 @@ export function ApiBuyerCart() {
         cart.complete();navigate(`/comprador/compras/${encodeURIComponent(result.purchase_id)}`,{replace:true});
     }
     const checkout=cart.attempt?.checkout;
+    const demoDataVisible = cart.lines.length > 0 &&
+        areSyntheticRecords(cart.lines.map(line => line.offer)) &&
+        (!cart.attempt || isSyntheticRecord(checkout));
     const expired=!!checkout&&Date.parse(checkout.expires_at)<=now;
     const itemSubtotal = cart.lines.reduce((sum, line) => sum + cents(line.offer.unit_price) * BigInt(line.quantity), 0n);
     const displayedTotal = checkout ? money(checkout.total) : formatCents(itemSubtotal);
@@ -367,6 +386,7 @@ export function ApiBuyerCart() {
     return <div className="space-y-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
             <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Portal do comprador</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">Meu carrinho</h1><p className="mt-2 text-sm text-slate-600">Revise os itens e as condições da compra.</p></div>
+            <DemoDataBadge visible={demoDataVisible}/>
             {!!cart.lines.length && <BuyerStatus tone="progress" icon="cart">{itemCount} {itemCount === 1 ? "unidade" : "unidades"}</BuyerStatus>}
         </header>
         {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
@@ -422,8 +442,15 @@ export function ApiBuyerPurchases() {
     const repository=useRepository();
     const [page,setPage]=useState(1);
     const result=useRead(()=>repository.purchases(page),[repository,page]);
+    const demoDataVisible = !!result.value?.items.length && result.value.items.every(purchase =>
+        purchase.supplier_orders.length > 0 &&
+        areSyntheticRecords(purchase.supplier_orders.flatMap(order => [
+            order,
+            ...order.items.map(item => item.product),
+        ])),
+    );
     return <div className="space-y-5">
-        <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Portal do comprador</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">Minhas compras</h1><p className="mt-2 text-sm text-slate-600">Veja os valores e o andamento de cada pedido.</p></div><button className={secondaryButton} disabled={result.loading} onClick={result.reload}><BuyerIcon name="refresh" className="h-4 w-4"/>Atualizar compras</button></header>
+        <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Portal do comprador</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">Minhas compras</h1><p className="mt-2 text-sm text-slate-600">Veja os valores e o andamento de cada pedido.</p></div><div className="flex flex-wrap items-center gap-3"><DemoDataBadge visible={demoDataVisible}/><button className={secondaryButton} disabled={result.loading} onClick={result.reload}><BuyerIcon name="refresh" className="h-4 w-4"/>Atualizar compras</button></div></header>
         <Result {...result}>
             <div className="space-y-4">{result.value?.items.map(purchase=>{
                 const total=purchase.supplier_orders.reduce((sum,order)=>sum+cents(order.total),0n);
@@ -466,11 +493,17 @@ export function ApiBuyerPurchaseDetails() {
     const {user}=useAuth();
     const repository=useRepository();
     const result=usePurchaseDetails(repository,purchaseId,user?.organization_id??"");
+    const demoDataVisible = !!result.value?.supplier_orders.length && areSyntheticRecords(
+        result.value.supplier_orders.flatMap(order => [
+            order,
+            ...order.items.map(item => item.product),
+        ]),
+    );
     return <div className="space-y-5">
         <Link className={`${secondaryButton} w-fit`} to="/comprador/compras"><BuyerIcon name="arrow-left" className="h-4 w-4"/>Voltar às compras</Link>
         <Result loading={result.loading} error={result.value?"":result.error} reload={result.reload}>{result.value&&<>
             <header className={`${card} flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between`}>
-                <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Resumo da compra</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">Compra #{result.value.id.slice(0,8).toUpperCase()}</h1><p className="mt-2 text-sm text-slate-600">{result.value.supplier_orders.length} pedido(s) vinculado(s)</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-700">Resumo da compra</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-blue-950 sm:text-3xl">Compra #{result.value.id.slice(0,8).toUpperCase()}</h1><p className="mt-2 text-sm text-slate-600">{result.value.supplier_orders.length} pedido(s) vinculado(s)</p><div className="mt-3"><DemoDataBadge visible={demoDataVisible}/></div></div>
                 <div className="flex flex-wrap items-end justify-between gap-4 sm:justify-end"><div><p className="text-xs font-medium text-slate-500">Valor total</p><p className="mt-1 text-2xl font-bold tabular-nums text-blue-950">{formatCents(result.value.supplier_orders.reduce((sum,order)=>sum+cents(order.total),0n))}</p></div><button className={secondaryButton} disabled={result.refreshing} onClick={result.reload}><BuyerIcon name="refresh" className="h-4 w-4"/>Atualizar situação</button></div>
             </header>
             <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-500">
